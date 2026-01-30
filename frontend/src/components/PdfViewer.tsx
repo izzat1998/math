@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -11,6 +11,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 interface PdfViewerProps {
   url: string
 }
+
+type SlideDir = 'left' | 'right' | null
 
 export default function PdfViewer({ url }: PdfViewerProps) {
   const { isMobile } = useMobileDetect()
@@ -27,6 +29,35 @@ export default function PdfViewer({ url }: PdfViewerProps) {
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const pinchRef = useRef({ startDist: 0, startScale: 1 })
   const panRef = useRef({ startX: 0, startY: 0, startTx: 0, startTy: 0, isPanning: false })
+
+  // Swipe-to-navigate state
+  const swipeRef = useRef({ startX: 0, startY: 0, swiping: false })
+  const [swipeOffset, setSwipeOffset] = useState(0)
+  const [slideDir, setSlideDir] = useState<SlideDir>(null)
+
+  // Arrow visibility
+  const [showArrows, setShowArrows] = useState(true)
+  const arrowTimerRef = useRef<ReturnType<typeof setTimeout>>()
+
+  const goToPage = useCallback((page: number) => {
+    if (page < 1 || page > numPages || page === pageNumber) return
+    setSlideDir(page > pageNumber ? 'left' : 'right')
+    setPageNumber(page)
+  }, [numPages, pageNumber])
+
+  // Auto-hide arrows after 3 seconds
+  useEffect(() => {
+    if (!isMobile || !showArrows) return
+    arrowTimerRef.current = setTimeout(() => setShowArrows(false), 3000)
+    return () => clearTimeout(arrowTimerRef.current)
+  }, [isMobile, showArrows, pageNumber])
+
+  // Clear slide animation after it plays
+  useEffect(() => {
+    if (!slideDir) return
+    const t = setTimeout(() => setSlideDir(null), 300)
+    return () => clearTimeout(t)
+  }, [slideDir])
 
   useEffect(() => {
     api.get(url, { responseType: 'blob' }).then(({ data }) => {
@@ -57,6 +88,7 @@ export default function PdfViewer({ url }: PdfViewerProps) {
   useEffect(() => {
     setScale(1)
     setTranslate({ x: 0, y: 0 })
+    setSwipeOffset(0)
   }, [pageNumber])
 
   // ── Pinch-to-zoom handlers (mobile) ──
@@ -68,52 +100,82 @@ export default function PdfViewer({ url }: PdfViewerProps) {
 
   function handleTouchStart(e: React.TouchEvent) {
     if (e.touches.length === 2) {
-      // Pinch start
       pinchRef.current = {
         startDist: getTouchDist(e.touches),
         startScale: scale,
       }
-    } else if (e.touches.length === 1 && scale > 1) {
-      // Pan start (only when zoomed in)
-      panRef.current = {
-        startX: e.touches[0].clientX,
-        startY: e.touches[0].clientY,
-        startTx: translate.x,
-        startTy: translate.y,
-        isPanning: true,
+      swipeRef.current.swiping = false
+    } else if (e.touches.length === 1) {
+      if (scale > 1) {
+        // Pan when zoomed
+        panRef.current = {
+          startX: e.touches[0].clientX,
+          startY: e.touches[0].clientY,
+          startTx: translate.x,
+          startTy: translate.y,
+          isPanning: true,
+        }
+      } else {
+        // Swipe to navigate when not zoomed
+        swipeRef.current = {
+          startX: e.touches[0].clientX,
+          startY: e.touches[0].clientY,
+          swiping: true,
+        }
       }
     }
   }
 
   function handleTouchMove(e: React.TouchEvent) {
     if (e.touches.length === 2) {
-      // Pinch move
       const dist = getTouchDist(e.touches)
       const newScale = Math.min(
         3,
         Math.max(1, pinchRef.current.startScale * (dist / pinchRef.current.startDist))
       )
       setScale(newScale)
-
-      // If zoomed back to 1, reset translate
       if (newScale <= 1) {
         setTranslate({ x: 0, y: 0 })
       }
     } else if (e.touches.length === 1 && panRef.current.isPanning && scale > 1) {
-      // Pan move
       const dx = e.touches[0].clientX - panRef.current.startX
       const dy = e.touches[0].clientY - panRef.current.startY
-      // Clamp panning so PDF doesn't fly off screen
       const maxPan = (scale - 1) * containerWidth * 0.5
       setTranslate({
         x: Math.max(-maxPan, Math.min(maxPan, panRef.current.startTx + dx)),
         y: Math.max(-maxPan, Math.min(maxPan, panRef.current.startTy + dy)),
       })
+    } else if (e.touches.length === 1 && swipeRef.current.swiping && scale <= 1) {
+      // Track horizontal swipe offset for visual feedback
+      const dx = e.touches[0].clientX - swipeRef.current.startX
+      const dy = e.touches[0].clientY - swipeRef.current.startY
+      // Only swipe if horizontal movement is dominant
+      if (Math.abs(dx) > Math.abs(dy) * 1.5 && Math.abs(dx) > 10) {
+        // Clamp offset to prevent over-drag, add resistance at edges
+        const maxOffset = containerWidth * 0.4
+        const atEdge = (dx > 0 && pageNumber <= 1) || (dx < 0 && pageNumber >= numPages)
+        const resistance = atEdge ? 0.2 : 0.6
+        setSwipeOffset(Math.max(-maxOffset, Math.min(maxOffset, dx * resistance)))
+      }
     }
   }
 
-  function handleTouchEnd() {
+  function handleTouchEnd(e: React.TouchEvent) {
     panRef.current.isPanning = false
+
+    // Handle swipe navigation
+    if (swipeRef.current.swiping && scale <= 1) {
+      const dx = e.changedTouches[0].clientX - swipeRef.current.startX
+      const threshold = 60
+      if (dx < -threshold && pageNumber < numPages) {
+        goToPage(pageNumber + 1)
+      } else if (dx > threshold && pageNumber > 1) {
+        goToPage(pageNumber - 1)
+      }
+      swipeRef.current.swiping = false
+      setSwipeOffset(0)
+    }
+
     // Snap back to 1 if barely zoomed
     if (scale < 1.1) {
       setScale(1)
@@ -133,6 +195,9 @@ export default function PdfViewer({ url }: PdfViewerProps) {
       } else {
         setScale(2)
       }
+    } else {
+      // Single tap — show arrows
+      setShowArrows(true)
     }
     lastTapRef.current = now
   }
@@ -145,43 +210,53 @@ export default function PdfViewer({ url }: PdfViewerProps) {
     )
   }
 
-  // On mobile: render at container width, use CSS transform for zoom
-  // On desktop: use the zoom state directly
   const pageWidth = isMobile ? containerWidth || 350 : zoom
+
+  // Slide animation class
+  const slideClass = slideDir === 'left'
+    ? 'animate-slide-in-left'
+    : slideDir === 'right'
+      ? 'animate-slide-in-right'
+      : ''
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-200 bg-white shrink-0">
-        <div className="flex items-center gap-0.5">
-          <button
-            onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-            disabled={pageNumber <= 1}
-            className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors active:scale-95"
-            aria-label="Oldingi sahifa"
-          >
-            <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-          </button>
-          <span className="text-sm text-slate-600 font-medium min-w-[60px] text-center tabular-nums">
-            {pageNumber} / {numPages}
-          </span>
-          <button
-            onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
-            disabled={pageNumber >= numPages}
-            className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors active:scale-95"
-            aria-label="Keyingi sahifa"
-          >
-            <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-            </svg>
-          </button>
-        </div>
+      {/* Toolbar — compact on mobile, full on desktop */}
+      <div className="flex items-center justify-center px-3 py-1.5 border-b border-slate-200 bg-white shrink-0 relative">
+        {/* Page indicator — always centered */}
+        <span className="text-sm text-slate-600 font-semibold tabular-nums tracking-tight">
+          {pageNumber} / {numPages}
+        </span>
 
-        {/* Zoom controls — desktop only */}
+        {/* Desktop: prev/next in toolbar */}
         {!isMobile && (
-          <div className="flex items-center gap-1">
+          <div className="absolute left-3 flex items-center gap-0.5">
+            <button
+              onClick={() => goToPage(pageNumber - 1)}
+              disabled={pageNumber <= 1}
+              className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors active:scale-95"
+              aria-label="Oldingi sahifa"
+            >
+              <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <button
+              onClick={() => goToPage(pageNumber + 1)}
+              disabled={pageNumber >= numPages}
+              className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors active:scale-95"
+              aria-label="Keyingi sahifa"
+            >
+              <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Desktop: zoom controls */}
+        {!isMobile && (
+          <div className="absolute right-3 flex items-center gap-1">
             <button
               onClick={() => setZoom((z) => Math.max(400, z - 100))}
               disabled={zoom <= 400}
@@ -206,13 +281,13 @@ export default function PdfViewer({ url }: PdfViewerProps) {
           </div>
         )}
 
-        {/* Mobile: zoom indicator when zoomed */}
+        {/* Mobile: zoom indicator */}
         {isMobile && scale > 1 && (
           <button
             onClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }) }}
-            className="text-xs font-medium text-accent-600 bg-accent-50 px-2.5 py-1 rounded-full active:scale-95"
+            className="absolute right-3 text-xs font-medium text-accent-600 bg-accent-50 px-2.5 py-1 rounded-full active:scale-95"
           >
-            {Math.round(scale * 100)}% ✕
+            {Math.round(scale * 100)}%
           </button>
         )}
       </div>
@@ -230,10 +305,16 @@ export default function PdfViewer({ url }: PdfViewerProps) {
         style={isMobile ? { touchAction: scale > 1 ? 'none' : 'pan-y' } : undefined}
       >
         <div
+          className={slideClass}
           style={isMobile ? {
-            transform: `scale(${scale}) translate(${translate.x / scale}px, ${translate.y / scale}px)`,
+            transform: scale > 1
+              ? `scale(${scale}) translate(${translate.x / scale}px, ${translate.y / scale}px)`
+              : swipeOffset !== 0
+                ? `translateX(${swipeOffset}px)`
+                : undefined,
             transformOrigin: 'top center',
-            willChange: scale > 1 ? 'transform' : 'auto',
+            transition: swipeOffset === 0 && !slideDir ? 'transform 0.3s ease-out' : undefined,
+            willChange: scale > 1 || swipeOffset !== 0 ? 'transform' : 'auto',
           } : undefined}
         >
           <Document
@@ -249,10 +330,45 @@ export default function PdfViewer({ url }: PdfViewerProps) {
           </Document>
         </div>
 
-        {/* Zoom hint — only shown initially */}
+        {/* ── Mobile: Centered overlay arrows ── */}
+        {isMobile && scale <= 1 && numPages > 1 && (
+          <>
+            {/* Previous page arrow */}
+            {pageNumber > 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); goToPage(pageNumber - 1); setShowArrows(true) }}
+                className={`absolute left-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm shadow-lg shadow-black/10 border border-white/50 flex items-center justify-center active:scale-90 transition-all duration-300 ${
+                  showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+                aria-label="Oldingi sahifa"
+              >
+                <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+            )}
+
+            {/* Next page arrow */}
+            {pageNumber < numPages && (
+              <button
+                onClick={(e) => { e.stopPropagation(); goToPage(pageNumber + 1); setShowArrows(true) }}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm shadow-lg shadow-black/10 border border-white/50 flex items-center justify-center active:scale-90 transition-all duration-300 ${
+                  showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+                aria-label="Keyingi sahifa"
+              >
+                <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+            )}
+          </>
+        )}
+
+        {/* Zoom hint */}
         {isMobile && scale === 1 && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-slate-400 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full pointer-events-none">
-            Kattalashtirish: ikki barmoq bilan
+            Chapga/o'ngga suring
           </div>
         )}
       </div>
