@@ -55,6 +55,7 @@
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-slide-up: slide-up 0.3s ease-out;
   --animate-spin-slow: spin 1.2s linear infinite;
+  --animate-keyboard-in: keyboard-in 0.2s ease-out;
 }
 
 @keyframes pulse-urgent {
@@ -70,6 +71,11 @@
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes keyboard-in {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 300px; }
 }
 
 @layer base {

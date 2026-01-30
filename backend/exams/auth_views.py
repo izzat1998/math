@@ -101,9 +101,10 @@ def auth_invite_code(request):
         )
 
     student = Student.objects.create(full_name=full_name)
-    invite.is_used = True
-    invite.used_by = student
-    invite.save()
+    if not invite.reusable:
+        invite.is_used = True
+        invite.used_by = student
+        invite.save()
 
     return Response({
         **_get_tokens_for_student(student),

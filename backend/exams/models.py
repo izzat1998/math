@@ -46,9 +46,11 @@ class InviteCode(models.Model):
     code = models.CharField(max_length=20, unique=True)
     is_used = models.BooleanField(default=False)
     used_by = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
+    reusable = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.code} ({'used' if self.is_used else 'available'})"
+        status = 'reusable' if self.reusable else ('used' if self.is_used else 'available')
+        return f"{self.code} ({status})"
 
 
 class ExamSession(models.Model):

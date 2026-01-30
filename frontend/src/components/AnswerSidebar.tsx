@@ -1,3 +1,7 @@
+import { useState, useRef, useCallback } from 'react'
+import MathKeyboard from './MathKeyboard'
+import { useCursorInsert } from '../hooks/useCursorInsert'
+
 interface AnswerSidebarProps {
   answers: Record<string, string>
   onAnswer: (questionNumber: number, subPart: string | null, answer: string) => void
@@ -23,12 +27,43 @@ const freeQuestions = range(FREE_START, FREE_END)
 const totalQuestions = MCQ_COUNT + freeQuestions.length
 
 export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled }: AnswerSidebarProps) {
+  const [focusedInput, setFocusedInput] = useState<string | null>(null)
+  const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
+  const insertSymbol = useCursorInsert(inputRefs, answers, onAnswer)
+
   const mcqAnswered = mcqQuestions.filter((q) => answers[answerKey(q, null)]).length
   const freeAnswered = freeQuestions.filter(
     (q) => answers[answerKey(q, 'a')] || answers[answerKey(q, 'b')]
   ).length
   const totalAnswered = mcqAnswered + freeAnswered
   const progressPercent = Math.round((totalAnswered / totalQuestions) * 100)
+
+  const handleFocus = useCallback((key: string, el: HTMLInputElement) => {
+    setFocusedInput(key)
+    // Scroll into view for mobile
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+  }, [])
+
+  const handleBlur = useCallback(() => {
+    // Delay to check if focus moved to another input vs. outside entirely
+    setTimeout(() => {
+      const active = document.activeElement
+      if (!(active instanceof HTMLInputElement) || !inputRefs.current?.has(
+        Array.from(inputRefs.current.entries()).find(([, el]) => el === active)?.[0] ?? ''
+      )) {
+        setFocusedInput(null)
+      }
+    }, 0)
+  }, [])
+
+  const handleSymbol = useCallback(
+    (text: string) => {
+      if (focusedInput) insertSymbol(focusedInput, text)
+    },
+    [focusedInput, insertSymbol]
+  )
 
   return (
     <div className="flex flex-col h-full">
@@ -89,19 +124,35 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled }:
               <div key={q} className="bg-slate-50 rounded-lg p-3">
                 <span className="text-sm font-semibold text-slate-700 mb-2 block">{q}.</span>
                 <div className="space-y-2">
-                  {['a', 'b'].map((sub) => (
-                    <div key={sub} className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-slate-400 w-4">{sub})</span>
-                      <input
-                        type="text"
-                        value={answers[answerKey(q, sub)] || ''}
-                        onChange={(e) => onAnswer(q, sub, e.target.value)}
-                        disabled={disabled}
-                        className="flex-1 !py-1.5 !px-2.5 !text-sm"
-                        placeholder="Javobingiz..."
-                      />
-                    </div>
-                  ))}
+                  {['a', 'b'].map((sub) => {
+                    const key = answerKey(q, sub)
+                    return (
+                      <div key={sub}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-400 w-4">{sub})</span>
+                          <input
+                            ref={(el) => {
+                              if (el) inputRefs.current.set(key, el)
+                              else inputRefs.current.delete(key)
+                            }}
+                            type="text"
+                            value={answers[key] || ''}
+                            onChange={(e) => onAnswer(q, sub, e.target.value)}
+                            onFocus={(e) => handleFocus(key, e.currentTarget)}
+                            onBlur={handleBlur}
+                            disabled={disabled}
+                            className="flex-1 !py-1.5 !px-2.5 !text-sm"
+                            placeholder="Javobingiz..."
+                          />
+                        </div>
+                        {focusedInput === key && !disabled && (
+                          <div className="ml-6">
+                            <MathKeyboard onSymbol={handleSymbol} />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             ))}
