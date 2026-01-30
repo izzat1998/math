@@ -32,7 +32,7 @@ export default function InviteCodesPage() {
       const { data } = await adminApi.post(`/admin/exams/${examId}/invite-codes/`, { count })
       setCodes((prev) => [...data, ...prev])
     } catch {
-      // Handle error silently
+      // Silently ignored -- generate button can be retried
     } finally {
       setGenerating(false)
     }
@@ -49,7 +49,7 @@ export default function InviteCodesPage() {
   }
 
   const availableCount = codes.filter((c) => !c.is_used).length
-  const usedCount = codes.filter((c) => c.is_used).length
+  const usedCount = codes.length - availableCount
 
   return (
     <AdminLayout
@@ -60,7 +60,6 @@ export default function InviteCodesPage() {
       ]}
     >
       <div className="max-w-2xl">
-        {/* Summary counters */}
         {!loading && codes.length > 0 && (
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -78,7 +77,6 @@ export default function InviteCodesPage() {
           </div>
         )}
 
-        {/* Generate controls */}
         <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
           <h3 className="text-sm font-semibold text-slate-700 mb-3">Yangi kodlar yaratish</h3>
           <div className="flex items-center gap-3">
@@ -107,14 +105,12 @@ export default function InviteCodesPage() {
           </div>
         </div>
 
-        {/* Loading state */}
         {loading && (
           <div className="bg-white rounded-xl border border-slate-200 p-8 flex items-center justify-center">
             <LoadingSpinner label="Kodlar yuklanmoqda..." />
           </div>
         )}
 
-        {/* Codes list */}
         {!loading && codes.length > 0 && (
           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="divide-y divide-slate-100">

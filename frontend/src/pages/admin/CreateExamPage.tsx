@@ -16,6 +16,12 @@ export default function CreateExamPage() {
   const [submitting, setSubmitting] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
+  function dropZoneClass(): string {
+    if (dragActive) return 'border-accent-400 bg-accent-50'
+    if (pdfFile) return 'border-success-300 bg-success-50'
+    return 'border-slate-300 bg-slate-50 hover:border-slate-400'
+  }
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setDragActive(false)
@@ -89,13 +95,7 @@ export default function CreateExamPage() {
               onDragOver={handleDrag}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
-                dragActive
-                  ? 'border-accent-400 bg-accent-50'
-                  : pdfFile
-                  ? 'border-success-300 bg-success-50'
-                  : 'border-slate-300 bg-slate-50 hover:border-slate-400'
-              }`}
+              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dropZoneClass()}`}
             >
               {pdfFile ? (
                 <div className="flex flex-col items-center gap-2">

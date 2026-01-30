@@ -7,6 +7,7 @@ const MCQ_OPTIONS = ['A', 'B', 'C', 'D']
 const MCQ_COUNT = 35
 const FREE_START = 36
 const FREE_END = 45
+const FREE_COUNT = FREE_END - FREE_START + 1
 
 export default function ExamAnswersPage() {
   const { examId } = useParams<{ examId: string }>()
@@ -42,20 +43,19 @@ export default function ExamAnswersPage() {
     }
   }
 
-  // Auto-dismiss success toast
   useEffect(() => {
     if (!saved) return
     const t = setTimeout(() => setSaved(false), 3000)
     return () => clearTimeout(t)
   }, [saved])
 
-  // Progress
-  const mcqFilled = Array.from({ length: MCQ_COUNT }, (_, i) => `${i + 1}`).filter((k) => !!answers[k]).length
-  const freeFilled = Array.from({ length: FREE_END - FREE_START + 1 }, (_, i) => i + FREE_START).filter(
-    (q) => !!answers[`${q}_a`] || !!answers[`${q}_b`]
-  ).length
+  const mcqFilled = Object.keys(answers).filter((k) => !k.includes('_') && Number(k) <= MCQ_COUNT).length
+  const freeFilled = Object.keys(answers).filter((k) => k.includes('_')).reduce((set, k) => {
+    set.add(k.split('_')[0])
+    return set
+  }, new Set<string>()).size
   const totalFilled = mcqFilled + freeFilled
-  const totalQuestions = MCQ_COUNT + (FREE_END - FREE_START + 1)
+  const totalQuestions = MCQ_COUNT + FREE_COUNT
 
   return (
     <AdminLayout
@@ -113,7 +113,7 @@ export default function ExamAnswersPage() {
             Ochiq savollar ({FREE_START}-{FREE_END})
           </h3>
           <div className="space-y-3">
-            {Array.from({ length: FREE_END - FREE_START + 1 }, (_, i) => i + FREE_START).map((q) => (
+            {Array.from({ length: FREE_COUNT }, (_, i) => i + FREE_START).map((q) => (
               <div key={q} className="bg-slate-50 rounded-lg p-3">
                 <span className="text-sm font-semibold text-slate-700 mb-2 block">{q}.</span>
                 <div className="space-y-2">

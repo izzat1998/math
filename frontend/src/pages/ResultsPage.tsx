@@ -1,10 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../api/client'
-import type { ExamResults } from '../api/types'
+import type { ExamResults, AnswerBreakdown } from '../api/types'
 import LoadingSpinner from '../components/LoadingSpinner'
 
-function ProgressRing({ value, total, color, size = 100 }: { value: number; total: number; color: string; size?: number }) {
+interface ProgressRingProps {
+  value: number
+  total: number
+  color: string
+  size?: number
+}
+
+function ProgressRing({ value, total, color, size = 100 }: ProgressRingProps) {
   const radius = (size - 8) / 2
   const circumference = 2 * Math.PI * radius
   const progress = total > 0 ? value / total : 0
@@ -37,6 +44,36 @@ function ProgressRing({ value, total, color, size = 100 }: { value: number; tota
   )
 }
 
+function mcqBadgeClass(answered: boolean, correct: boolean | undefined): string {
+  if (!answered) return 'bg-slate-50 text-slate-300 border-slate-100'
+  if (correct) return 'bg-success-50 text-success-700 border-success-200'
+  return 'bg-danger-50 text-danger-700 border-danger-200'
+}
+
+function subPartBadgeClass(part: { is_correct: boolean } | undefined): string {
+  if (!part) return 'bg-slate-100 text-slate-400'
+  if (part.is_correct) return 'bg-success-100 text-success-700'
+  return 'bg-danger-100 text-danger-700'
+}
+
+function subPartLabel(part: { is_correct: boolean } | undefined): string {
+  if (!part) return "Javob yo'q"
+  if (part.is_correct) return "To'g'ri"
+  return "Noto'g'ri"
+}
+
+function SubPartDetail({ label, part }: { label: string; part: AnswerBreakdown | undefined }) {
+  if (!part) return null
+  return (
+    <div className="flex gap-4">
+      <span>{label}) Siz: <span className="font-medium">{part.student_answer}</span></span>
+      {part.correct_answer && (
+        <span>Javob: <span className="font-medium text-success-700">{part.correct_answer}</span></span>
+      )}
+    </div>
+  )
+}
+
 export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const [results, setResults] = useState<ExamResults | null>(null)
@@ -51,10 +88,9 @@ export default function ResultsPage() {
   }
 
   const correctCount = results.breakdown.filter((b) => b.is_correct).length
-  const wrongCount = results.breakdown.filter((b) => !b.is_correct).length
-  const mcqTotal = 35
+  const wrongCount = results.breakdown.length - correctCount
   const mcqAnswered = results.breakdown.filter((b) => b.question_number <= 35).length
-  const unansweredMcq = mcqTotal - mcqAnswered
+  const unansweredMcq = 35 - mcqAnswered
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
@@ -147,7 +183,7 @@ export default function ResultsPage() {
           {/* Question breakdown grid */}
           <div className="px-6 pb-6">
             <h2 className="text-sm font-semibold text-slate-700 mb-3">Savollar 1-35</h2>
-            <div className="grid grid-cols-7 sm:grid-cols-7 gap-2">
+            <div className="grid grid-cols-7 gap-2">
               {Array.from({ length: 35 }, (_, i) => i + 1).map((q) => {
                 const entry = results.breakdown.find((b) => b.question_number === q && !b.sub_part)
                 const answered = !!entry
@@ -157,13 +193,7 @@ export default function ResultsPage() {
                   <div key={q} className="flex flex-col">
                     <div
                       onClick={() => results.exam_closed && answered && setExpandedQ(expandedQ === q ? null : q)}
-                      className={`rounded-lg p-2 text-center text-sm font-semibold border transition-colors ${
-                        !answered
-                          ? 'bg-slate-50 text-slate-300 border-slate-100'
-                          : correct
-                          ? 'bg-success-50 text-success-700 border-success-200'
-                          : 'bg-danger-50 text-danger-700 border-danger-200'
-                      } ${results.exam_closed && answered ? 'cursor-pointer hover:ring-2 hover:ring-accent-300' : ''}`}
+                      className={`rounded-lg p-2 text-center text-sm font-semibold border transition-colors ${mcqBadgeClass(answered, correct)} ${results.exam_closed && answered ? 'cursor-pointer hover:ring-2 hover:ring-accent-300' : ''}`}
                     >
                       {q}
                     </div>
@@ -191,48 +221,18 @@ export default function ResultsPage() {
                     <div className="flex items-center gap-3">
                       <span className="w-8 font-semibold text-slate-700 text-sm">{q}.</span>
                       <div className="flex gap-2">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            !partA
-                              ? 'bg-slate-100 text-slate-400'
-                              : partA.is_correct
-                              ? 'bg-success-100 text-success-700'
-                              : 'bg-danger-100 text-danger-700'
-                          }`}
-                        >
-                          a) {partA ? (partA.is_correct ? 'To\'g\'ri' : 'Noto\'g\'ri') : 'Javob yo\'q'}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${subPartBadgeClass(partA)}`}>
+                          a) {subPartLabel(partA)}
                         </span>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            !partB
-                              ? 'bg-slate-100 text-slate-400'
-                              : partB.is_correct
-                              ? 'bg-success-100 text-success-700'
-                              : 'bg-danger-100 text-danger-700'
-                          }`}
-                        >
-                          b) {partB ? (partB.is_correct ? 'To\'g\'ri' : 'Noto\'g\'ri') : 'Javob yo\'q'}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${subPartBadgeClass(partB)}`}>
+                          b) {subPartLabel(partB)}
                         </span>
                       </div>
                     </div>
                     {results.exam_closed && (
                       <div className="mt-2 ml-11 space-y-1.5 text-xs text-slate-600">
-                        {partA && (
-                          <div className="flex gap-4">
-                            <span>a) Siz: <span className="font-medium">{partA.student_answer}</span></span>
-                            {partA.correct_answer && (
-                              <span>Javob: <span className="font-medium text-success-700">{partA.correct_answer}</span></span>
-                            )}
-                          </div>
-                        )}
-                        {partB && (
-                          <div className="flex gap-4">
-                            <span>b) Siz: <span className="font-medium">{partB.student_answer}</span></span>
-                            {partB.correct_answer && (
-                              <span>Javob: <span className="font-medium text-success-700">{partB.correct_answer}</span></span>
-                            )}
-                          </div>
-                        )}
+                        <SubPartDetail label="a" part={partA} />
+                        <SubPartDetail label="b" part={partB} />
                       </div>
                     )}
                   </div>

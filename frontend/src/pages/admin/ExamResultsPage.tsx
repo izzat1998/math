@@ -26,6 +26,11 @@ function SkeletonRow() {
   )
 }
 
+function average(items: StudentResult[], getter: (r: StudentResult) => number): string {
+  if (items.length === 0) return '0'
+  return (items.reduce((sum, r) => sum + getter(r), 0) / items.length).toFixed(1)
+}
+
 export default function ExamResultsPage() {
   const { examId } = useParams<{ examId: string }>()
   const [results, setResults] = useState<StudentResult[]>([])
@@ -38,14 +43,9 @@ export default function ExamResultsPage() {
     }).catch(() => setLoading(false))
   }, [examId])
 
-  // Summary stats
   const totalStudents = results.length
-  const avgExercises = totalStudents > 0
-    ? (results.reduce((s, r) => s + r.exercises_correct, 0) / totalStudents).toFixed(1)
-    : '0'
-  const avgPoints = totalStudents > 0
-    ? (results.reduce((s, r) => s + r.points, 0) / totalStudents).toFixed(1)
-    : '0'
+  const avgExercises = average(results, (r) => r.exercises_correct)
+  const avgPoints = average(results, (r) => r.points)
   const autoSubmitted = results.filter((r) => r.is_auto_submitted).length
 
   return (
@@ -56,7 +56,6 @@ export default function ExamResultsPage() {
         { label: 'Natijalar' },
       ]}
     >
-      {/* Summary stat cards */}
       {!loading && results.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -79,7 +78,6 @@ export default function ExamResultsPage() {
       )}
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-        {/* Loading skeleton */}
         {loading && (
           <table className="w-full">
             <tbody>
@@ -88,7 +86,6 @@ export default function ExamResultsPage() {
           </table>
         )}
 
-        {/* Empty state */}
         {!loading && results.length === 0 && (
           <div className="text-center py-12">
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
@@ -100,7 +97,6 @@ export default function ExamResultsPage() {
           </div>
         )}
 
-        {/* Results table */}
         {!loading && results.length > 0 && (
           <table className="w-full text-sm">
             <thead>

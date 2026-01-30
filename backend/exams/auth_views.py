@@ -2,16 +2,18 @@ import hashlib
 import hmac
 import json
 from urllib.parse import parse_qs
+
 from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import Student, InviteCode
 
 
-def get_tokens_for_student(student):
+def _get_tokens_for_student(student):
     refresh = RefreshToken()
     refresh['student_id'] = str(student.id)
     refresh['full_name'] = student.full_name
@@ -23,22 +25,25 @@ def get_tokens_for_student(student):
     }
 
 
-def validate_telegram_init_data(init_data_raw):
+def _validate_telegram_init_data(init_data_raw):
     """Validate Telegram Mini App initData per Telegram docs."""
     parsed = parse_qs(init_data_raw)
     received_hash = parsed.get('hash', [None])[0]
     if not received_hash:
         return None
 
-    data_check_pairs = []
-    for key, values in sorted(parsed.items()):
-        if key == 'hash':
-            continue
-        data_check_pairs.append(f"{key}={values[0]}")
-    data_check_string = '\n'.join(data_check_pairs)
+    data_check_string = '\n'.join(
+        f"{key}={values[0]}"
+        for key, values in sorted(parsed.items())
+        if key != 'hash'
+    )
 
-    secret_key = hmac.new(b'WebAppData', settings.TELEGRAM_BOT_TOKEN.encode(), hashlib.sha256).digest()
-    computed_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+    secret_key = hmac.new(
+        b'WebAppData', settings.TELEGRAM_BOT_TOKEN.encode(), hashlib.sha256
+    ).digest()
+    computed_hash = hmac.new(
+        secret_key, data_check_string.encode(), hashlib.sha256
+    ).hexdigest()
 
     if computed_hash != received_hash:
         return None
@@ -57,7 +62,7 @@ def auth_telegram(request):
     if not init_data:
         return Response({'error': 'initData talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
 
-    user_data = validate_telegram_init_data(init_data)
+    user_data = _validate_telegram_init_data(init_data)
     if not user_data:
         return Response({"error": "initData noto'g'ri"}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -71,7 +76,7 @@ def auth_telegram(request):
         defaults={'full_name': full_name},
     )
 
-    return Response(get_tokens_for_student(student))
+    return Response(_get_tokens_for_student(student))
 
 
 @api_view(['POST'])
@@ -90,7 +95,10 @@ def auth_invite_code(request):
     try:
         invite = InviteCode.objects.get(code=code, is_used=False)
     except InviteCode.DoesNotExist:
-        return Response({"error": "Taklif kodi noto'g'ri yoki ishlatilgan"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"error": "Taklif kodi noto'g'ri yoki ishlatilgan"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
     student = Student.objects.create(full_name=full_name)
     invite.is_used = True
@@ -98,6 +106,6 @@ def auth_invite_code(request):
     invite.save()
 
     return Response({
-        **get_tokens_for_student(student),
+        **_get_tokens_for_student(student),
         'exam_id': str(invite.exam.id),
     })

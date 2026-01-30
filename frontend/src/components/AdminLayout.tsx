@@ -7,6 +7,13 @@ interface AdminLayoutProps {
   breadcrumbs?: { label: string; to?: string }[]
 }
 
+function navLinkClass({ isActive }: { isActive: boolean }): string {
+  const base = 'px-3 py-1.5 rounded-md text-sm font-medium transition-colors'
+  return isActive
+    ? `${base} bg-white/15 text-white`
+    : `${base} text-white/70 hover:text-white hover:bg-white/10`
+}
+
 export default function AdminLayout({ children, title, breadcrumbs }: AdminLayoutProps) {
   const navigate = useNavigate()
 
@@ -18,7 +25,6 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Top nav */}
       <header className="bg-primary-600 text-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
@@ -29,24 +35,10 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
             </div>
             <div className="flex items-center gap-6">
               <nav className="hidden sm:flex items-center gap-1">
-                <NavLink
-                  to="/admin/dashboard"
-                  className={({ isActive }) =>
-                    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`
-                  }
-                >
+                <NavLink to="/admin/dashboard" className={navLinkClass}>
                   Boshqaruv paneli
                 </NavLink>
-                <NavLink
-                  to="/admin/exams/create"
-                  className={({ isActive }) =>
-                    `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                      isActive ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`
-                  }
-                >
+                <NavLink to="/admin/exams/create" className={navLinkClass}>
                   Imtihon yaratish
                 </NavLink>
               </nav>
@@ -61,7 +53,6 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
         </div>
       </header>
 
-      {/* Breadcrumbs + Title */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           {breadcrumbs && breadcrumbs.length > 0 && (
@@ -84,7 +75,6 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
         </div>
       </div>
 
-      {/* Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {children}
       </main>

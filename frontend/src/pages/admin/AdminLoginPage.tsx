@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import axios from 'axios'
+import adminApi from './adminApi'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
 export default function AdminLoginPage() {
@@ -15,7 +15,7 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
     try {
-      const { data } = await axios.post('/api/token/', { username, password })
+      const { data } = await adminApi.post('/token/', { username, password })
       localStorage.setItem('admin_access_token', data.access)
       localStorage.setItem('admin_refresh_token', data.refresh)
       navigate('/admin/dashboard')

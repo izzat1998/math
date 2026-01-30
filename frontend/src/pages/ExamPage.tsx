@@ -49,7 +49,6 @@ export default function ExamPage() {
     })
   }, [examId, exam, navigate])
 
-  // Warn before leaving during active exam
   useEffect(() => {
     if (!session || submitted) return
     const handler = (e: BeforeUnloadEvent) => {
@@ -89,13 +88,10 @@ export default function ExamPage() {
     })
   }, [session, submitted, navigate])
 
-  // Count answered for badge
   const answeredCount = Object.keys(answers).length
-
-  // Status screens
   const examStatus = getExamStatus(exam)
 
-  if (examStatus === 'loading') {
+  if (examStatus === 'loading' || !exam) {
     return <LoadingSpinner fullScreen label="Imtihon yuklanmoqda..." />
   }
 
@@ -110,10 +106,10 @@ export default function ExamPage() {
           </div>
           <h2 className="text-lg font-semibold text-slate-800 mb-2">Imtihon hali ochilmagan</h2>
           <p className="text-sm text-slate-500 mb-1">
-            <span className="font-medium text-slate-700">{exam!.title}</span>
+            <span className="font-medium text-slate-700">{exam.title}</span>
           </p>
           <p className="text-sm text-slate-500">
-            Ochilish vaqti: {new Date(exam!.open_at).toLocaleString()}
+            Ochilish vaqti: {new Date(exam.open_at).toLocaleString()}
           </p>
         </div>
       </div>
@@ -131,10 +127,10 @@ export default function ExamPage() {
           </div>
           <h2 className="text-lg font-semibold text-slate-800 mb-2">Imtihon yopilgan</h2>
           <p className="text-sm text-slate-500 mb-1">
-            <span className="font-medium text-slate-700">{exam!.title}</span>
+            <span className="font-medium text-slate-700">{exam.title}</span>
           </p>
           <p className="text-sm text-slate-500">
-            Bu imtihon yopilgan: {new Date(exam!.close_at).toLocaleString()}
+            Bu imtihon yopilgan: {new Date(exam.close_at).toLocaleString()}
           </p>
         </div>
       </div>
@@ -160,7 +156,7 @@ export default function ExamPage() {
             </svg>
           </button>
           <h1 className="font-semibold text-slate-800 text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">
-            {exam!.title}
+            {exam.title}
           </h1>
         </div>
 

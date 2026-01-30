@@ -9,23 +9,22 @@ function ExamStatusBadge({ exam }: { exam: Exam }) {
   const open = new Date(exam.open_at).getTime()
   const close = new Date(exam.close_at).getTime()
 
+  let label: string
+  let className: string
   if (now < open) {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-50 text-warning-700 border border-warning-200">
-        Kutilmoqda
-      </span>
-    )
+    label = 'Kutilmoqda'
+    className = 'bg-warning-50 text-warning-700 border-warning-200'
+  } else if (now <= close) {
+    label = 'Ochiq'
+    className = 'bg-success-50 text-success-700 border-success-200'
+  } else {
+    label = 'Yopiq'
+    className = 'bg-slate-100 text-slate-500 border-slate-200'
   }
-  if (now >= open && now <= close) {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-50 text-success-700 border border-success-200">
-        Ochiq
-      </span>
-    )
-  }
+
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
-      Yopiq
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${className}`}>
+      {label}
     </span>
   )
 }
@@ -58,14 +57,12 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout title="Sinov imtihonlari" breadcrumbs={[{ label: 'Boshqaruv paneli' }]}>
-      {/* Loading state */}
       {loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && exams.length === 0 && (
         <div className="text-center py-16 bg-white rounded-xl border border-slate-200">
           <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
@@ -87,7 +84,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Exam cards grid */}
       {!loading && exams.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {exams.map((exam) => (

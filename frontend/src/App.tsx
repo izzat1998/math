@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { useTelegram } from './hooks/useTelegram'
@@ -14,18 +15,17 @@ import ExamAnswersPage from './pages/admin/ExamAnswersPage'
 import ExamResultsPage from './pages/admin/ExamResultsPage'
 import InviteCodesPage from './pages/admin/InviteCodesPage'
 
-function TelegramGate({ children }: { children: React.ReactNode }) {
+function TelegramGate({ children }: { children: ReactNode }) {
   const { isTelegram, initData, ready, expand } = useTelegram()
   const { isAuthenticated, loginWithTelegram } = useAuth()
   const [loading, setLoading] = useState(isTelegram && !isAuthenticated)
 
   useEffect(() => {
-    if (isTelegram) {
-      ready()
-      expand()
-      if (!isAuthenticated && initData) {
-        loginWithTelegram(initData).finally(() => setLoading(false))
-      }
+    if (!isTelegram) return
+    ready()
+    expand()
+    if (!isAuthenticated && initData) {
+      loginWithTelegram(initData).finally(() => setLoading(false))
     }
   }, [isTelegram, isAuthenticated, initData, loginWithTelegram, ready, expand])
 
@@ -33,7 +33,7 @@ function TelegramGate({ children }: { children: React.ReactNode }) {
     return <LoadingSpinner fullScreen label="Ulanmoqda..." />
   }
 
-  return <>{children}</>
+  return children
 }
 
 function App() {
