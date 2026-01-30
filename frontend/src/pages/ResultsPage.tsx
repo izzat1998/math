@@ -1,53 +1,86 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import type { ExamResults, AnswerBreakdown } from '../api/types'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { useTelegram } from '../hooks/useTelegram'
+import { useMobileDetect } from '../hooks/useMobileDetect'
 
-interface ProgressRingProps {
-  value: number
-  total: number
-  color: string
-  size?: number
-}
-
-function ProgressRing({ value, total, color, size = 100 }: ProgressRingProps) {
-  const radius = (size - 8) / 2
+function ScoreCircle({ value, total, size = 160 }: { value: number; total: number; size?: number }) {
+  const radius = (size - 20) / 2
   const circumference = 2 * Math.PI * radius
   const progress = total > 0 ? value / total : 0
   const offset = circumference * (1 - progress)
+  const percent = Math.round(progress * 100)
+  const isGood = progress >= 0.7
 
   return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={6}
-        className="text-slate-100"
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth={6}
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className="transition-all duration-700 ease-out"
-      />
-    </svg>
+    <div className="relative animate-count-up" style={{ width: size, height: size }}>
+      {/* Glow effect for good scores */}
+      {isGood && (
+        <div
+          className="absolute inset-0 rounded-full blur-2xl opacity-20"
+          style={{ background: `radial-gradient(circle, #06b6d4 0%, transparent 70%)` }}
+        />
+      )}
+      <svg width={size} height={size} className="transform -rotate-90">
+        {/* Background ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={10}
+          className="text-slate-100"
+        />
+        {/* Progress ring */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={10}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="transition-all duration-1000 ease-out"
+          style={{
+            stroke: isGood
+              ? 'url(#scoreGradient)'
+              : progress >= 0.5 ? '#f59e0b' : '#f43f5e',
+          }}
+        />
+        <defs>
+          <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#06b6d4" />
+            <stop offset="100%" stopColor="#10b981" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-4xl font-extrabold text-slate-800 leading-none tracking-tight">
+          {value}
+        </span>
+        <span className="text-sm font-bold text-slate-400 mt-0.5">
+          / {total}
+        </span>
+        <span className={`text-xs font-bold mt-1.5 px-2 py-0.5 rounded-full ${
+          isGood ? 'bg-accent-500/10 text-accent-600' :
+          progress >= 0.5 ? 'bg-warning-500/10 text-warning-600' :
+          'bg-danger-500/10 text-danger-600'
+        }`}>
+          {percent}%
+        </span>
+      </div>
+    </div>
   )
 }
 
-function mcqBadgeClass(answered: boolean, correct: boolean | undefined): string {
-  if (!answered) return 'bg-slate-50 text-slate-300 border-slate-100'
-  if (correct) return 'bg-success-50 text-success-700 border-success-200'
-  return 'bg-danger-50 text-danger-700 border-danger-200'
+function mcqCellClass(answered: boolean, correct: boolean | undefined): string {
+  if (!answered) return 'bg-slate-50 text-slate-300 ring-1 ring-slate-100'
+  if (correct) return 'bg-success-50 text-success-600 ring-1 ring-success-200'
+  return 'bg-danger-50 text-danger-500 ring-1 ring-danger-200'
 }
 
 function subPartBadgeClass(part: { is_correct: boolean } | undefined): string {
@@ -57,7 +90,7 @@ function subPartBadgeClass(part: { is_correct: boolean } | undefined): string {
 }
 
 function subPartLabel(part: { is_correct: boolean } | undefined): string {
-  if (!part) return "Javob yo'q"
+  if (!part) return "—"
   if (part.is_correct) return "To'g'ri"
   return "Noto'g'ri"
 }
@@ -65,10 +98,10 @@ function subPartLabel(part: { is_correct: boolean } | undefined): string {
 function SubPartDetail({ label, part }: { label: string; part: AnswerBreakdown | undefined }) {
   if (!part) return null
   return (
-    <div className="flex gap-4">
-      <span>{label}) Siz: <span className="font-medium">{part.student_answer}</span></span>
+    <div className="flex gap-4 text-slate-500">
+      <span>{label}) Siz: <span className="font-semibold text-slate-700">{part.student_answer}</span></span>
       {part.correct_answer && (
-        <span>Javob: <span className="font-medium text-success-700">{part.correct_answer}</span></span>
+        <span>Javob: <span className="font-semibold text-success-600">{part.correct_answer}</span></span>
       )}
     </div>
   )
@@ -76,12 +109,25 @@ function SubPartDetail({ label, part }: { label: string; part: AnswerBreakdown |
 
 export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
   const [results, setResults] = useState<ExamResults | null>(null)
   const [expandedQ, setExpandedQ] = useState<number | null>(null)
+  const { isTelegram, showBackButton, hideBackButton, hapticNotification } = useTelegram()
+  const { isMobile } = useMobileDetect()
 
   useEffect(() => {
-    api.get<ExamResults>(`/sessions/${sessionId}/results/`).then(({ data }) => setResults(data))
-  }, [sessionId])
+    api.get<ExamResults>(`/sessions/${sessionId}/results/`).then(({ data }) => {
+      setResults(data)
+      hapticNotification('success')
+    })
+  }, [sessionId, hapticNotification])
+
+  useEffect(() => {
+    if (isTelegram) {
+      showBackButton(() => navigate('/'))
+      return () => hideBackButton()
+    }
+  }, [isTelegram, showBackButton, hideBackButton, navigate])
 
   if (!results) {
     return <LoadingSpinner fullScreen label="Natijalar yuklanmoqda..." />
@@ -91,156 +137,166 @@ export default function ResultsPage() {
   const wrongCount = results.breakdown.length - correctCount
   const mcqAnswered = results.breakdown.filter((b) => b.question_number <= 35).length
   const unansweredMcq = 35 - mcqAnswered
+  const scoreTotal = results.exercises_total
+  const scoreValue = results.exercises_correct
+  const gridCols = isMobile ? 5 : 7
+  const progress = scoreTotal > 0 ? scoreValue / scoreTotal : 0
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto animate-fade-in">
-        {/* Back link */}
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-accent-600 mb-6 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-          </svg>
-          Bosh sahifa
-        </Link>
+    <div className="min-h-screen-dvh bg-slate-50 bg-noise pb-safe">
+      {/* Hero section with dark header */}
+      <div className="bg-gradient-to-b from-primary-800 via-primary-700 to-slate-50 pt-6 pb-24 px-4 relative overflow-hidden">
+        {/* Decorative glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[200px] bg-accent-500/10 rounded-full blur-[80px]" />
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="px-6 py-5 border-b border-slate-200">
-            <h1 className="text-xl font-bold text-slate-900">Imtihon natijalari</h1>
-            {results.exam_title && (
-              <p className="text-sm text-slate-500 mt-1">{results.exam_title}</p>
-            )}
+        {!isTelegram && (
+          <Link
+            to="/"
+            className="relative z-10 inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 mb-6 transition-colors active:scale-95 font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+            Bosh sahifa
+          </Link>
+        )}
+
+        {results.exam_title && (
+          <p className="relative z-10 text-[13px] font-semibold text-white/40 text-center tracking-wide uppercase">
+            {results.exam_title}
+          </p>
+        )}
+      </div>
+
+      {/* Score circle — overlaps the dark header */}
+      <div className="flex justify-center -mt-20 mb-4 relative z-10">
+        <div className="bg-white rounded-3xl p-5 shadow-xl shadow-slate-200/80 border border-slate-200/60">
+          <ScoreCircle value={scoreValue} total={scoreTotal} size={isMobile ? 150 : 170} />
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 animate-slide-up" style={{ animationDelay: '0.15s', animationFillMode: 'both' }}>
+        {/* Score message */}
+        <p className="text-center text-sm font-semibold text-slate-400 mb-4">
+          {progress >= 0.7
+            ? 'Yaxshi natija!'
+            : progress >= 0.5
+              ? 'O\'rtacha natija'
+              : 'Mashq qilishda davom eting'}
+        </p>
+
+        {/* Stats chips */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-success-50 text-success-700 text-xs font-bold ring-1 ring-success-200/50">
+            <span className="w-1.5 h-1.5 rounded-full bg-success-500" />
+            {correctCount} to'g'ri
+          </span>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-danger-50 text-danger-600 text-xs font-bold ring-1 ring-danger-200/50">
+            <span className="w-1.5 h-1.5 rounded-full bg-danger-500" />
+            {wrongCount} noto'g'ri
+          </span>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 text-slate-500 text-xs font-bold ring-1 ring-slate-200/50">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+            {unansweredMcq} bo'sh
+          </span>
+        </div>
+
+        {results.is_auto_submitted && (
+          <div className="mb-4 flex items-center gap-2.5 p-3 bg-warning-50 border border-warning-200/50 rounded-2xl">
+            <span className="text-warning-500 text-sm">⚡</span>
+            <p className="text-[13px] text-warning-700 font-medium">Vaqt tugadi — avtomatik topshirildi</p>
           </div>
+        )}
 
-          {results.exam_closed && (
-            <div className="mx-6 mt-4 flex items-start gap-3 p-3 bg-accent-50 border border-accent-100 rounded-lg">
-              <svg className="w-5 h-5 text-accent-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-              </svg>
-              <p className="text-sm text-accent-700">Imtihon yopilgan — to'g'ri javoblar quyida ko'rsatilgan.</p>
-            </div>
-          )}
-
-          {results.is_auto_submitted && (
-            <div className="mx-6 mt-4 flex items-start gap-3 p-3 bg-warning-50 border border-warning-100 rounded-lg">
-              <svg className="w-5 h-5 text-warning-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-              </svg>
-              <p className="text-sm text-warning-700">Vaqt tugadi — imtihon avtomatik topshirildi.</p>
-            </div>
-          )}
-
-          {/* Score cards with progress rings */}
-          <div className="grid grid-cols-2 gap-4 p-6">
-            <div className="bg-accent-50 rounded-xl p-5 flex flex-col items-center">
-              <div className="relative mb-3">
-                <ProgressRing value={results.exercises_correct} total={results.exercises_total} color="#0ea5e9" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xl font-bold text-accent-700">
-                    {results.exercises_correct}
-                  </span>
-                </div>
-              </div>
-              <div className="text-sm font-medium text-accent-700">
-                {results.exercises_total} ta mashqdan
-              </div>
-            </div>
-            <div className="bg-success-50 rounded-xl p-5 flex flex-col items-center">
-              <div className="relative mb-3">
-                <ProgressRing value={results.points} total={results.points_total} color="#22c55e" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xl font-bold text-success-700">
-                    {results.points}
-                  </span>
-                </div>
-              </div>
-              <div className="text-sm font-medium text-success-700">
-                {results.points_total} ta balldan
-              </div>
-            </div>
-          </div>
-
-          {/* Summary line */}
-          <div className="mx-6 mb-4 flex items-center justify-center gap-4 text-sm">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-success-500" />
-              <span className="text-slate-600">To'g'ri: {correctCount}</span>
-            </span>
-            <span className="text-slate-300">|</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-danger-500" />
-              <span className="text-slate-600">Noto'g'ri: {wrongCount}</span>
-            </span>
-            <span className="text-slate-300">|</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-              <span className="text-slate-600">Javob berilmagan: {unansweredMcq}</span>
-            </span>
-          </div>
-
-          {/* Question breakdown grid */}
-          <div className="px-6 pb-6">
-            <h2 className="text-sm font-semibold text-slate-700 mb-3">Savollar 1-35</h2>
-            <div className="grid grid-cols-7 gap-2">
-              {Array.from({ length: 35 }, (_, i) => i + 1).map((q) => {
-                const entry = results.breakdown.find((b) => b.question_number === q && !b.sub_part)
-                const answered = !!entry
-                const correct = entry?.is_correct
-                const isExpanded = results.exam_closed && expandedQ === q && answered
-                return (
-                  <div key={q} className="flex flex-col">
-                    <div
-                      onClick={() => results.exam_closed && answered && setExpandedQ(expandedQ === q ? null : q)}
-                      className={`rounded-lg p-2 text-center text-sm font-semibold border transition-colors ${mcqBadgeClass(answered, correct)} ${results.exam_closed && answered ? 'cursor-pointer hover:ring-2 hover:ring-accent-300' : ''}`}
-                    >
-                      {q}
+        {/* Questions 1-35 grid */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 mb-3">
+          <h2 className="text-[13px] font-bold text-slate-500 mb-3 tracking-wide uppercase">Test savollari</h2>
+          <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+            {Array.from({ length: 35 }, (_, i) => i + 1).map((q) => {
+              const entry = results.breakdown.find((b) => b.question_number === q && !b.sub_part)
+              const answered = !!entry
+              const correct = entry?.is_correct
+              const isExpanded = results.exam_closed && expandedQ === q && answered
+              return (
+                <div key={q} className="flex flex-col">
+                  <button
+                    onClick={() => results.exam_closed && answered && setExpandedQ(expandedQ === q ? null : q)}
+                    className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all active:scale-90 ${mcqCellClass(answered, correct)} ${results.exam_closed && answered ? 'cursor-pointer' : ''}`}
+                  >
+                    <span className="text-[13px] font-bold leading-none">
+                      {!answered ? '—' : correct ? '✓' : '✗'}
+                    </span>
+                    <span className="text-[9px] font-semibold mt-0.5 opacity-60">{q}</span>
+                  </button>
+                  {isExpanded && entry && (
+                    <div className="mt-1 rounded-xl bg-slate-50 border border-slate-200 px-2 py-1.5 text-[10px] text-slate-500 space-y-0.5 animate-scale-in">
+                      <div>Siz: <span className="font-bold text-slate-700">{entry.student_answer}</span></div>
+                      {entry.correct_answer && (
+                        <div>Javob: <span className="font-bold text-success-600">{entry.correct_answer}</span></div>
+                      )}
                     </div>
-                    {isExpanded && entry && (
-                      <div className="mt-1 rounded-md bg-slate-50 border border-slate-200 px-2 py-1.5 text-xs text-slate-600 space-y-0.5">
-                        <div>Siz: <span className="font-medium">{entry.student_answer}</span></div>
-                        {entry.correct_answer && (
-                          <div>Javob: <span className="font-medium text-success-700">{entry.correct_answer}</span></div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Questions 36-45 */}
-            <h2 className="text-sm font-semibold text-slate-700 mt-6 mb-3">Savollar 36-45</h2>
-            <div className="space-y-2">
-              {Array.from({ length: 10 }, (_, i) => i + 36).map((q) => {
-                const partA = results.breakdown.find((b) => b.question_number === q && b.sub_part === 'a')
-                const partB = results.breakdown.find((b) => b.question_number === q && b.sub_part === 'b')
-                return (
-                  <div key={q} className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                    <div className="flex items-center gap-3">
-                      <span className="w-8 font-semibold text-slate-700 text-sm">{q}.</span>
-                      <div className="flex gap-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${subPartBadgeClass(partA)}`}>
-                          a) {subPartLabel(partA)}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${subPartBadgeClass(partB)}`}>
-                          b) {subPartLabel(partB)}
-                        </span>
-                      </div>
-                    </div>
-                    {results.exam_closed && (
-                      <div className="mt-2 ml-11 space-y-1.5 text-xs text-slate-600">
-                        <SubPartDetail label="a" part={partA} />
-                        <SubPartDetail label="b" part={partB} />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
+
+        {/* Questions 36-45 */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-4 mb-5">
+          <h2 className="text-[13px] font-bold text-slate-500 mb-3 tracking-wide uppercase">Ochiq savollar</h2>
+          <div className="space-y-2">
+            {Array.from({ length: 10 }, (_, i) => i + 36).map((q) => {
+              const partA = results.breakdown.find((b) => b.question_number === q && b.sub_part === 'a')
+              const partB = results.breakdown.find((b) => b.question_number === q && b.sub_part === 'b')
+              return (
+                <div key={q} className="p-3 bg-slate-50/70 rounded-xl border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 font-bold text-slate-700 text-sm">{q}.</span>
+                    <div className="flex gap-1.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold ${subPartBadgeClass(partA)}`}>
+                        a) {subPartLabel(partA)}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold ${subPartBadgeClass(partB)}`}>
+                        b) {subPartLabel(partB)}
+                      </span>
+                    </div>
+                  </div>
+                  {results.exam_closed && (
+                    <div className="mt-2 ml-10 space-y-1 text-xs">
+                      <SubPartDetail label="a" part={partA} />
+                      <SubPartDetail label="b" part={partB} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Share button */}
+        <button
+          onClick={() => {
+            if (isTelegram && window.Telegram?.WebApp) {
+              const text = `${results.exam_title}: ${scoreValue}/${scoreTotal} (${Math.round(progress * 100)}%)`
+              window.Telegram.WebApp.showAlert(text)
+            } else if (navigator.share) {
+              navigator.share({
+                title: 'Imtihon natijalari',
+                text: `${results.exam_title}: ${scoreValue}/${scoreTotal} (${Math.round(progress * 100)}%)`,
+              })
+            }
+          }}
+          className="w-full h-[52px] rounded-2xl text-white font-bold text-[15px] flex items-center justify-center gap-2.5 transition-all active:scale-[0.97] shadow-lg shadow-primary-500/15 mb-6"
+          style={{ background: 'linear-gradient(135deg, #1e3a5f, #0f2035)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+          Natijani ulashish
+        </button>
       </div>
     </div>
   )

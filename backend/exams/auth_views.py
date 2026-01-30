@@ -93,7 +93,12 @@ def auth_invite_code(request):
         )
 
     try:
-        invite = InviteCode.objects.get(code=code, is_used=False)
+        invite = InviteCode.objects.get(code=code)
+        if invite.is_used and not invite.reusable:
+            return Response(
+                {"error": "Taklif kodi allaqachon ishlatilgan"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
     except InviteCode.DoesNotExist:
         return Response(
             {"error": "Taklif kodi noto'g'ri yoki ishlatilgan"},

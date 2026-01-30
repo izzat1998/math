@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useTelegram } from '../hooks/useTelegram'
+import { useMobileDetect } from '../hooks/useMobileDetect'
 import type { Exam, SessionStart } from '../api/types'
 import PdfViewer from '../components/PdfViewer'
 import AnswerSidebar from '../components/AnswerSidebar'
+import AnswerBar from '../components/AnswerBar'
 import Timer from '../components/Timer'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -20,16 +23,39 @@ function getExamStatus(exam: Exam | null): ExamStatus {
   return 'active'
 }
 
+const TOTAL_QUESTIONS = 45
+
 export default function ExamPage() {
   const { examId } = useParams<{ examId: string }>()
   const { fullName } = useAuth()
   const navigate = useNavigate()
+  const { isMobile } = useMobileDetect()
+  const {
+    isTelegram,
+    showMainButton,
+    hideMainButton,
+    setMainButtonLoading,
+    showBackButton,
+    hideBackButton,
+    hapticImpact,
+    hapticNotification,
+    showPopup,
+    setHeaderColor,
+    setBackgroundColor,
+  } = useTelegram()
 
   const [exam, setExam] = useState<Exam | null>(null)
   const [session, setSession] = useState<SessionStart | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
-  const [showSidebar, setShowSidebar] = useState(false)
+  const [currentQuestion, setCurrentQuestion] = useState(1)
+
+  useEffect(() => {
+    if (isTelegram) {
+      setHeaderColor('#0a1628')
+      setBackgroundColor('#f8fafc')
+    }
+  }, [isTelegram, setHeaderColor, setBackgroundColor])
 
   useEffect(() => {
     api.get<Exam>(`/exams/${examId}/`).then(({ data }) => setExam(data))
@@ -51,9 +77,7 @@ export default function ExamPage() {
 
   useEffect(() => {
     if (!session || submitted) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
   }, [session, submitted])
@@ -63,32 +87,69 @@ export default function ExamPage() {
       if (!session) return
       const key = subPart ? `${questionNumber}_${subPart}` : `${questionNumber}`
       setAnswers((prev) => ({ ...prev, [key]: answer }))
+      hapticImpact('light')
       api.post(`/sessions/${session.session_id}/answers/`, {
         question_number: questionNumber,
         sub_part: subPart,
         answer,
       })
     },
-    [session]
+    [session, hapticImpact]
   )
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!session || submitted) return
-    if (!confirm('Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o\'zgartira olmaysiz.')) return
+
+    if (isTelegram) {
+      const buttonId = await showPopup({
+        title: 'Topshirishni tasdiqlang',
+        message: "Topshirgandan keyin javoblarni o'zgartira olmaysiz.",
+        buttons: [
+          { id: 'cancel', type: 'cancel', text: 'Bekor qilish' },
+          { id: 'submit', type: 'destructive', text: 'Topshirish' },
+        ],
+      })
+      if (buttonId !== 'submit') return
+    } else {
+      if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) return
+    }
+
+    setMainButtonLoading(true)
     await api.post(`/sessions/${session.session_id}/submit/`)
     setSubmitted(true)
+    hapticNotification('success')
+    hideMainButton()
     navigate(`/results/${session.session_id}`)
-  }
+  }, [session, submitted, isTelegram, showPopup, setMainButtonLoading, hapticNotification, hideMainButton, navigate])
+
+  useEffect(() => {
+    if (isTelegram && session && !submitted) {
+      showMainButton('Topshirish', handleSubmit)
+      return () => hideMainButton()
+    }
+  }, [isTelegram, session, submitted, showMainButton, hideMainButton, handleSubmit])
+
+  useEffect(() => {
+    if (isTelegram) {
+      showBackButton(() => navigate('/'))
+      return () => hideBackButton()
+    }
+  }, [isTelegram, showBackButton, hideBackButton, navigate])
 
   const handleExpire = useCallback(() => {
     if (!session || submitted) return
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
       setSubmitted(true)
+      hapticNotification('warning')
       navigate(`/results/${session.session_id}`)
     })
-  }, [session, submitted, navigate])
+  }, [session, submitted, navigate, hapticNotification])
 
-  const answeredCount = Object.keys(answers).length
+  const handleNavigate = useCallback((q: number) => {
+    setCurrentQuestion(q)
+    hapticImpact('light')
+  }, [hapticImpact])
+
   const examStatus = getExamStatus(exam)
 
   if (examStatus === 'loading' || !exam) {
@@ -97,19 +158,17 @@ export default function ExamPage() {
 
   if (examStatus === 'not_open') {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <div className="text-center max-w-sm mx-auto p-8 animate-fade-in">
-          <div className="w-16 h-16 rounded-full bg-warning-50 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-warning-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="flex items-center justify-center h-screen-dvh bg-slate-50 bg-noise">
+        <div className="text-center max-w-sm mx-auto p-8 animate-slide-up">
+          <div className="w-16 h-16 rounded-2xl bg-warning-500/10 border border-warning-500/20 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-7 h-7 text-warning-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">Imtihon hali ochilmagan</h2>
-          <p className="text-sm text-slate-500 mb-1">
-            <span className="font-medium text-slate-700">{exam.title}</span>
-          </p>
-          <p className="text-sm text-slate-500">
-            Ochilish vaqti: {new Date(exam.open_at).toLocaleString()}
+          <h2 className="text-lg font-bold text-slate-800 mb-2 tracking-tight">Imtihon hali ochilmagan</h2>
+          <p className="text-sm text-slate-400 font-medium mb-1">{exam.title}</p>
+          <p className="text-sm text-slate-400">
+            {new Date(exam.open_at).toLocaleString()}
           </p>
         </div>
       </div>
@@ -118,20 +177,15 @@ export default function ExamPage() {
 
   if (examStatus === 'closed') {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <div className="text-center max-w-sm mx-auto p-8 animate-fade-in">
-          <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="flex items-center justify-center h-screen-dvh bg-slate-50 bg-noise">
+        <div className="text-center max-w-sm mx-auto p-8 animate-slide-up">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-7 h-7 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">Imtihon yopilgan</h2>
-          <p className="text-sm text-slate-500 mb-1">
-            <span className="font-medium text-slate-700">{exam.title}</span>
-          </p>
-          <p className="text-sm text-slate-500">
-            Bu imtihon yopilgan: {new Date(exam.close_at).toLocaleString()}
-          </p>
+          <h2 className="text-lg font-bold text-slate-800 mb-2 tracking-tight">Imtihon yopilgan</h2>
+          <p className="text-sm text-slate-400 font-medium">{exam.title}</p>
         </div>
       </div>
     )
@@ -141,21 +195,71 @@ export default function ExamPage() {
     return <LoadingSpinner fullScreen label="Sessiya boshlanmoqda..." />
   }
 
+  // ── Mobile layout ──
+  if (isMobile) {
+    return (
+      <div className="h-screen-dvh flex flex-col bg-slate-50">
+        {/* Header */}
+        {!isTelegram ? (
+          <div className="flex items-center justify-between px-3 py-2.5 bg-primary-800 z-30 shrink-0">
+            <button
+              onClick={() => navigate('/')}
+              className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center active:scale-90 transition-transform"
+              aria-label="Orqaga"
+            >
+              <svg className="w-4.5 h-4.5 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+            </button>
+            <Timer
+              startedAt={session.started_at}
+              durationMinutes={session.duration}
+              onExpire={handleExpire}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center px-3 py-2.5 bg-primary-900/50 z-30 shrink-0">
+            <Timer
+              startedAt={session.started_at}
+              durationMinutes={session.duration}
+              onExpire={handleExpire}
+            />
+          </div>
+        )}
+
+        {/* PDF viewer */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <PdfViewer url={`/exams/${examId}/pdf/`} />
+        </div>
+
+        {/* Answer bar */}
+        <AnswerBar
+          currentQuestion={currentQuestion}
+          totalQuestions={TOTAL_QUESTIONS}
+          answers={answers}
+          onAnswer={saveAnswer}
+          onNavigate={handleNavigate}
+          disabled={submitted}
+        />
+      </div>
+    )
+  }
+
+  // ── Desktop layout ──
   return (
-    <div className="h-screen flex flex-col bg-slate-50">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shadow-sm z-30">
+    <div className="h-screen-dvh flex flex-col bg-slate-50">
+      <div className="flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200/80 z-30 shrink-0">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/')}
-            className="p-1.5 rounded-md hover:bg-slate-100 transition-colors hidden md:flex"
+            className="p-2 rounded-xl hover:bg-slate-100 transition-colors active:scale-95"
             aria-label="Bosh sahifaga qaytish"
           >
-            <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
           </button>
-          <h1 className="font-semibold text-slate-800 text-sm sm:text-base truncate max-w-[150px] sm:max-w-none">
+          <h1 className="font-bold text-slate-800 text-base tracking-tight">
             {exam.title}
           </h1>
         </div>
@@ -166,25 +270,21 @@ export default function ExamPage() {
           onExpire={handleExpire}
         />
 
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-500 hidden sm:inline">{fullName}</span>
-          <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-            <span className="text-xs font-semibold text-primary-700">
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm text-slate-400 font-medium">{fullName}</span>
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
+            <span className="text-xs font-bold text-white">
               {fullName?.charAt(0)?.toUpperCase() || '?'}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* PDF viewer */}
-        <div className={`${showSidebar ? 'hidden md:block md:w-[65%]' : 'w-full'} h-full`}>
+        <div className="w-[65%] h-full">
           <PdfViewer url={`/exams/${examId}/pdf/`} />
         </div>
-
-        {/* Sidebar - desktop */}
-        <div className="w-[35%] border-l border-slate-200 bg-white hidden md:flex flex-col">
+        <div className="w-[35%] border-l border-slate-200/80 bg-white flex flex-col">
           <AnswerSidebar
             answers={answers}
             onAnswer={saveAnswer}
@@ -193,47 +293,6 @@ export default function ExamPage() {
           />
         </div>
       </div>
-
-      {/* Mobile FAB */}
-      <button
-        onClick={() => setShowSidebar(!showSidebar)}
-        className="md:hidden fixed bottom-6 right-6 w-14 h-14 bg-accent-500 text-white rounded-full shadow-lg flex items-center justify-center text-xl z-50 hover:bg-accent-600 transition-colors"
-        aria-label="Javoblarni ko'rsatish"
-      >
-        {showSidebar ? (
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        ) : (
-          <>
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-            </svg>
-            {answeredCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-danger-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {answeredCount}
-              </span>
-            )}
-          </>
-        )}
-      </button>
-
-      {/* Mobile bottom sheet (65vh) */}
-      {showSidebar && (
-        <div className="md:hidden fixed inset-x-0 bottom-0 h-[65vh] bg-white z-40 rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.12)] animate-slide-up flex flex-col">
-          <div className="flex justify-center py-2">
-            <div className="w-10 h-1 bg-slate-300 rounded-full" />
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <AnswerSidebar
-              answers={answers}
-              onAnswer={saveAnswer}
-              onSubmit={handleSubmit}
-              disabled={submitted}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

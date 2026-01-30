@@ -16,7 +16,7 @@ import ExamResultsPage from './pages/admin/ExamResultsPage'
 import InviteCodesPage from './pages/admin/InviteCodesPage'
 
 function TelegramGate({ children }: { children: ReactNode }) {
-  const { isTelegram, initData, ready, expand } = useTelegram()
+  const { isTelegram, initData, ready, expand, setHeaderColor, setBackgroundColor } = useTelegram()
   const { isAuthenticated, loginWithTelegram } = useAuth()
   const [loading, setLoading] = useState(isTelegram && !isAuthenticated)
 
@@ -24,10 +24,14 @@ function TelegramGate({ children }: { children: ReactNode }) {
     if (!isTelegram) return
     ready()
     expand()
+    // Set Telegram theme colors
+    setHeaderColor('#1e3a5f')
+    setBackgroundColor('#f8fafc')
+
     if (!isAuthenticated && initData) {
       loginWithTelegram(initData).finally(() => setLoading(false))
     }
-  }, [isTelegram, isAuthenticated, initData, loginWithTelegram, ready, expand])
+  }, [isTelegram, isAuthenticated, initData, loginWithTelegram, ready, expand, setHeaderColor, setBackgroundColor])
 
   if (loading) {
     return <LoadingSpinner fullScreen label="Ulanmoqda..." />

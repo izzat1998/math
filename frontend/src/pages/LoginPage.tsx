@@ -11,7 +11,6 @@ export default function LoginPage() {
   const { loginWithInviteCode, logout } = useAuth()
   const navigate = useNavigate()
 
-  // Clear any stale tokens from previous sessions
   useEffect(() => {
     logout()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -31,122 +30,110 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left decorative panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-600 to-primary-800" />
+    <div className="min-h-screen-dvh flex bg-noise">
+      {/* Left panel — desktop only */}
+      <div className="hidden lg:flex lg:w-[45%] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-800 via-primary-700 to-primary-900" />
+        {/* Decorative grid */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
+            backgroundSize: '40px 40px',
+          }}
+        />
+        {/* Accent glow */}
+        <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-accent-500/20 rounded-full blur-[100px]" />
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-accent-400/10 rounded-full blur-[80px]" />
+
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
-          <div className="mb-8">
-            <div className="w-14 h-14 rounded-xl bg-white/15 flex items-center justify-center mb-6">
-              <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
-              </svg>
+          <div className="mb-10">
+            <div className="w-12 h-12 rounded-xl bg-accent-500/20 border border-accent-400/20 flex items-center justify-center mb-6">
+              <span className="text-2xl font-bold text-accent-300">M</span>
             </div>
-            <h1 className="text-3xl font-bold mb-3">Matematika Sinov Imtihoni</h1>
-            <p className="text-white/70 text-lg leading-relaxed">
-              Haqiqiy imtihon sharoitida mashq qiling.
+            <h1 className="text-4xl font-extrabold tracking-tight mb-3 leading-tight">
+              Matematika<br />
+              <span className="text-accent-400">Sinov Imtihoni</span>
+            </h1>
+            <p className="text-white/50 text-base leading-relaxed max-w-xs">
+              Haqiqiy imtihon sharoitida mashq qiling. Vaqt chegarali, natijalar tezkor.
             </p>
           </div>
-          <div className="space-y-4 text-sm text-white/60">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
+
+          <div className="space-y-3">
+            {[
+              { icon: '01', text: 'PDF varaqni ko\'ring' },
+              { icon: '02', text: 'Javoblarni belgilang' },
+              { icon: '03', text: 'Natijani darhol oling' },
+            ].map((item) => (
+              <div key={item.icon} className="flex items-center gap-4">
+                <span className="font-mono text-xs text-accent-400/70 font-bold w-6">{item.icon}</span>
+                <span className="text-sm text-white/40">{item.text}</span>
               </div>
-              <span>Vaqt chegarali imtihon sessiyalari</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                </svg>
-              </div>
-              <span>Tezkor baholash va natijalar</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                </svg>
-              </div>
-              <span>PDF imtihon varaqlari va javob kuzatuvi</span>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center px-6 bg-slate-50">
+      {/* Form panel */}
+      <div className="flex-1 flex items-center justify-center px-6 bg-white lg:bg-slate-50/50">
         <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="w-12 h-12 rounded-xl bg-primary-600 flex items-center justify-center mx-auto mb-3">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
-              </svg>
+          {/* Mobile branding */}
+          <div className="lg:hidden text-center mb-10 animate-fade-in">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary-500/20">
+              <span className="text-2xl font-extrabold text-white">M</span>
             </div>
-            <h1 className="text-xl font-bold text-slate-900">Matematika Sinov Imtihoni</h1>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Math Exam
+            </h1>
+            <p className="text-sm text-slate-400 mt-1.5 font-medium">Imtihonga tayyorlanish platformasi</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-            <div className="mb-6">
-              <h2 className="text-lg font-semibold text-slate-900">Imtihonga kirish</h2>
-              <p className="text-sm text-slate-500 mt-1">O'qituvchingiz bergan taklif kodini kiriting.</p>
+          <div className="animate-slide-up">
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Kirish</h2>
+              <p className="text-[13px] text-slate-400 mt-1.5 font-medium">Taklif kodingiz va ismingizni kiriting</p>
             </div>
 
             {error && (
-              <div className="mb-4 flex items-start gap-3 p-3 bg-danger-50 border border-danger-100 rounded-lg animate-fade-in">
-                <svg className="w-5 h-5 text-danger-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-                </svg>
-                <p className="text-sm text-danger-700">{error}</p>
+              <div className="mb-5 flex items-start gap-3 p-3.5 bg-danger-50 border border-danger-100 rounded-2xl animate-pop">
+                <div className="w-5 h-5 rounded-full bg-danger-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-danger-500 text-xs font-bold">!</span>
+                </div>
+                <p className="text-[13px] text-danger-600 font-medium leading-relaxed">{error}</p>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">To'liq ism</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Ism Familiya"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="!pl-10"
-                    required
-                  />
-                </div>
+                <label className="block text-[13px] font-semibold text-slate-600 mb-2">To'liq ism</label>
+                <input
+                  type="text"
+                  placeholder="Ism Familiya"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className="!h-[54px] !rounded-2xl !border-[1.5px]"
+                  required
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Taklif kodi</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="XXXX-XXXX"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
-                    className="!pl-10 uppercase tracking-widest font-mono"
-                    required
-                  />
-                </div>
+                <label className="block text-[13px] font-semibold text-slate-600 mb-2">Taklif kodi</label>
+                <input
+                  type="text"
+                  placeholder="XXXX-XXXX"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  className="!h-[54px] !rounded-2xl !border-[1.5px] !font-mono !tracking-[0.2em] !text-center !text-lg !font-bold !text-primary-500"
+                  required
+                />
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-primary-600 text-white py-2.5 rounded-lg font-medium text-sm hover:bg-primary-700 disabled:opacity-50 transition-colors"
+                className="w-full flex items-center justify-center gap-2.5 text-white h-[54px] rounded-2xl font-bold text-[15px] disabled:opacity-50 transition-all active:scale-[0.97] shadow-lg shadow-primary-500/20"
+                style={{ background: 'linear-gradient(135deg, #1e3a5f, #0f2035)' }}
               >
                 {loading ? (
                   <>
@@ -154,15 +141,20 @@ export default function LoginPage() {
                     Kirilmoqda...
                   </>
                 ) : (
-                  'Imtihonga kirish'
+                  <>
+                    Boshlash
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                    </svg>
+                  </>
                 )}
               </button>
             </form>
           </div>
 
-          <p className="text-center mt-4 text-sm text-slate-400">
+          <p className="text-center mt-6 text-[13px] text-slate-400 font-medium">
             <Link to="/admin" className="hover:text-accent-600 transition-colors">
-              Admin kirish
+              Admin panel
             </Link>
           </p>
         </div>

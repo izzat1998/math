@@ -16,15 +16,9 @@ function getUrgency(ms: number): Urgency {
 }
 
 const urgencyStyles: Record<Urgency, string> = {
-  normal: 'bg-slate-100 text-slate-700',
-  warning: 'bg-warning-50 text-warning-600 border-warning-200',
-  urgent: 'bg-danger-50 text-danger-600 border-danger-200 animate-pulse-urgent',
-}
-
-const urgencyIcon: Record<Urgency, string> = {
-  normal: 'text-slate-400',
-  warning: 'text-warning-500',
-  urgent: 'text-danger-500',
+  normal: 'bg-primary-800/60 text-white/90 border-primary-700/50',
+  warning: 'bg-warning-500/15 text-warning-500 border-warning-500/30',
+  urgent: 'bg-danger-500/15 text-danger-500 border-danger-500/40 animate-glow-pulse',
 }
 
 export default function Timer({ startedAt, durationMinutes, onExpire }: TimerProps) {
@@ -58,11 +52,25 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
   const urgency = getUrgency(remainingMs)
 
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${urgencyStyles[urgency]}`}>
-      <svg className={`w-4 h-4 ${urgencyIcon[urgency]}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-      </svg>
-      <span className="font-mono tabular-nums font-bold">{formatted}</span>
+    <div
+      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm transition-all duration-300 ${urgencyStyles[urgency]}`}
+    >
+      {/* Pulsing dot indicator */}
+      <span className="relative flex h-2 w-2">
+        <span className={`absolute inset-0 rounded-full ${
+          urgency === 'urgent' ? 'bg-danger-500 animate-ping' :
+          urgency === 'warning' ? 'bg-warning-500 animate-ping' :
+          'bg-accent-400'
+        } opacity-75`} />
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${
+          urgency === 'urgent' ? 'bg-danger-500' :
+          urgency === 'warning' ? 'bg-warning-500' :
+          'bg-accent-400'
+        }`} />
+      </span>
+      <span className="font-mono tabular-nums font-bold tracking-tight text-[15px]">
+        {formatted}
+      </span>
     </div>
   )
 }
