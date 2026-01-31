@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.PROD ? 'https://api.math.xlog.uz/api' : '/api',
 })
 
 api.interceptors.request.use((config) => {
@@ -64,7 +64,7 @@ api.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const { data } = await axios.post('/api/token/refresh/', {
+      const { data } = await axios.post(`${api.defaults.baseURL}/token/refresh/`, {
         refresh: refreshToken,
       })
       const newToken = data.access

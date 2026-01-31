@@ -89,17 +89,17 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled }:
           <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
             Test savollari (1-{MCQ_COUNT})
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {mcqQuestions.map((q) => (
               <div key={q} className="flex items-center gap-2">
-                <span className="w-7 text-xs font-medium text-slate-400 text-right tabular-nums">{q}</span>
-                <div className="flex gap-1">
+                <span className="w-7 text-xs font-medium text-slate-400 text-right tabular-nums shrink-0">{q}</span>
+                <div className="flex gap-1.5 flex-1">
                   {MCQ_OPTIONS.map((opt) => (
                     <button
                       key={opt}
                       onClick={() => onAnswer(q, null, opt)}
                       disabled={disabled}
-                      className={`w-8 h-8 rounded-md text-xs font-semibold border transition-all ${
+                      className={`flex-1 h-9 rounded-lg text-sm font-semibold border transition-all ${
                         answers[answerKey(q, null)] === opt
                           ? 'bg-accent-500 text-white border-accent-500 shadow-sm'
                           : 'bg-white text-slate-600 border-slate-200 hover:border-accent-300 hover:bg-accent-50'

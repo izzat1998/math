@@ -37,7 +37,7 @@ export default function PdfViewer({ url }: PdfViewerProps) {
 
   // Arrow visibility
   const [showArrows, setShowArrows] = useState(true)
-  const arrowTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const arrowTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const goToPage = useCallback((page: number) => {
     if (page < 1 || page > numPages || page === pageNumber) return
