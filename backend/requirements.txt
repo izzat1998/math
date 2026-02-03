@@ -24,4 +24,5 @@ sqlparse==0.5.5
 tzdata==2025.3
 tzlocal==5.3.1
 vine==5.1.0
+numpy==2.2.3
 wcwidth==0.5.2
