@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Math Exam Platform — Feature Explorer</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --bg2: #181a24; --bg3: #1e2130; --bg4: #262a3a;
+    --border: #2a2e3f; --border2: #3a3f55;
+    --text: #e4e6ef; --text2: #9ba1b8; --text3: #6b7194;
+    --accent: #6c5ce7; --accent2: #a29bfe; --accent-bg: rgba(108,92,231,0.12);
+    --green: #00b894; --green-bg: rgba(0,184,148,0.12);
+    --orange: #fdcb6e; --orange-bg: rgba(253,203,110,0.12);
+    --red: #e17055; --red-bg: rgba(225,112,85,0.12);
+    --blue: #74b9ff; --blue-bg: rgba(116,185,255,0.12);
+    --pink: #fd79a8; --pink-bg: rgba(253,121,168,0.12);
+    --cyan: #81ecec; --cyan-bg: rgba(129,236,236,0.12);
+    --radius: 10px; --radius-sm: 6px;
+  }
+  html { font-size: 14px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* Layout */
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar { width: 320px; min-width: 320px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .preview-area { flex: 1; overflow-y: auto; padding: 28px; }
+  .prompt-bar { border-top: 1px solid var(--border); background: var(--bg2); padding: 16px 24px; max-height: 200px; overflow-y: auto; }
+
+  /* Sidebar */
+  .sidebar-header { padding: 20px 18px 14px; border-bottom: 1px solid var(--border); }
+  .sidebar-header h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+  .sidebar-header p { font-size: 11.5px; color: var(--text3); margin-top: 4px; }
+  .sidebar-content { flex: 1; overflow-y: auto; padding: 12px; }
+
+  /* Preset bar */
+  .presets { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .preset-btn {
+    font-size: 11px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--text2); cursor: pointer; transition: all .15s;
+    font-weight: 500;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .preset-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent2); }
+
+  /* Feature cards in sidebar */
+  .feature-card {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all .15s;
+    position: relative;
+  }
+  .feature-card:hover { border-color: var(--border2); }
+  .feature-card.selected { border-color: var(--accent); background: var(--accent-bg); }
+  .feature-card .fc-head { display: flex; align-items: center; gap: 8px; }
+  .feature-card .fc-icon { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .feature-card .fc-title { font-size: 12.5px; font-weight: 600; flex: 1; }
+  .feature-card .fc-desc { font-size: 11px; color: var(--text3); margin-top: 6px; line-height: 1.5; }
+  .feature-card .fc-priority {
+    display: flex; gap: 3px; margin-top: 8px; align-items: center;
+  }
+  .fc-priority label { font-size: 10px; color: var(--text3); margin-right: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .priority-dot {
+    width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border2);
+    background: transparent; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700; color: transparent;
+  }
+  .priority-dot:hover { border-color: var(--accent); }
+  .priority-dot.p1 { background: var(--red); border-color: var(--red); color: #fff; }
+  .priority-dot.p2 { background: var(--orange); border-color: var(--orange); color: #1a1a2e; }
+  .priority-dot.p3 { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .priority-dot.p4 { background: var(--text3); border-color: var(--text3); color: #fff; }
+
+  .fc-toggle { position: absolute; top: 12px; right: 12px; }
+  .fc-toggle input { display: none; }
+  .fc-toggle .slider {
+    width: 34px; height: 18px; border-radius: 9px; background: var(--bg); border: 1px solid var(--border2);
+    display: block; cursor: pointer; position: relative; transition: all .2s;
+  }
+  .fc-toggle .slider::after {
+    content: ''; position: absolute; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--text3); top: 2px; left: 2px; transition: all .2s;
+  }
+  .fc-toggle input:checked + .slider { background: var(--accent); border-color: var(--accent); }
+  .fc-toggle input:checked + .slider::after { transform: translateX(16px); background: #fff; }
+
+  /* Preview */
+  .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .preview-card {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; transition: all .2s; position: relative;
+  }
+  .preview-card.hidden-feature { opacity: 0.3; filter: grayscale(0.8); pointer-events: none; }
+  .preview-card.highlight { border-color: var(--accent); box-shadow: 0 0 20px rgba(108,92,231,0.15); }
+  .pc-header { padding: 14px 16px 10px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  .pc-header .pc-icon { font-size: 16px; }
+  .pc-header h3 { font-size: 13px; font-weight: 600; }
+  .pc-header .pc-badge {
+    margin-left: auto; font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .pc-body { padding: 16px; min-height: 200px; }
+
+  /* Notes panel */
+  .notes-panel {
+    position: fixed; right: 0; top: 0; width: 360px; height: 100vh; background: var(--bg2);
+    border-left: 1px solid var(--border); transform: translateX(100%); transition: transform .25s ease;
+    z-index: 100; display: flex; flex-direction: column;
+  }
+  .notes-panel.open { transform: translateX(0); }
+  .notes-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .notes-header h2 { font-size: 14px; font-weight: 700; }
+  .notes-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 18px; padding: 4px; }
+  .notes-body { flex: 1; overflow-y: auto; padding: 16px; }
+  .note-item { background: var(--bg3); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 8px; }
+  .note-item .note-feature { font-size: 10px; font-weight: 700; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .note-item .note-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .note-item .note-time { font-size: 10px; color: var(--text3); margin-top: 4px; }
+  .notes-input { padding: 12px; border-top: 1px solid var(--border); }
+  .notes-input textarea {
+    width: 100%; height: 60px; background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    color: var(--text); padding: 8px; font-size: 12px; resize: none; font-family: inherit;
+  }
+  .notes-input textarea:focus { outline: none; border-color: var(--accent); }
+  .notes-input button {
+    margin-top: 6px; width: 100%; padding: 7px; background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+  }
+  .notes-input button:hover { opacity: 0.85; }
+
+  .notes-toggle {
+    position: fixed; right: 16px; bottom: 16px; z-index: 90; width: 44px; height: 44px;
+    border-radius: 50%; background: var(--accent); border: none; color: #fff; font-size: 18px;
+    cursor: pointer; box-shadow: 0 4px 16px rgba(108,92,231,0.35); transition: transform .15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .notes-toggle:hover { transform: scale(1.08); }
+  .notes-badge {
+    position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--red); font-size: 9px; font-weight: 700; display: flex; align-items: center;
+    justify-content: center; color: #fff;
+  }
+
+  /* Prompt */
+  .prompt-text { font-size: 12px; color: var(--text2); line-height: 1.7; font-family: 'SF Mono', 'Fira Code', monospace; white-space: pre-wrap; }
+  .copy-btn {
+    float: right; padding: 5px 14px; background: var(--accent); color: #fff; border: none;
+    border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+  }
+  .copy-btn:hover { opacity: 0.85; }
+  .copy-btn.copied { background: var(--green); }
+
+  /* ─── Preview Widgets ─── */
+
+  /* Elo */
+  .elo-display { text-align: center; padding: 12px 0; }
+  .elo-number { font-size: 48px; font-weight: 800; letter-spacing: -2px; background: linear-gradient(135deg, var(--accent), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .elo-label { font-size: 11px; color: var(--text3); margin-top: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  .elo-change { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; margin-top: 8px; }
+  .elo-change.up { background: var(--green-bg); color: var(--green); }
+  .elo-history { display: flex; align-items: flex-end; gap: 4px; height: 60px; margin-top: 14px; justify-content: center; }
+  .elo-bar { width: 24px; border-radius: 4px 4px 0 0; transition: height .3s; position: relative; }
+  .elo-bar-label { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 8px; color: var(--text3); white-space: nowrap; }
+
+  /* Heatmap */
+  .heatmap-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; }
+  .hm-cell {
+    aspect-ratio: 1; border-radius: 4px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 9px; font-weight: 700; transition: all .15s;
+    cursor: default; position: relative;
+  }
+  .hm-cell .hm-q { font-size: 10px; font-weight: 700; }
+  .hm-cell .hm-time { font-size: 8px; opacity: 0.8; margin-top: 1px; }
+  .hm-legend { display: flex; gap: 12px; margin-top: 10px; justify-content: center; }
+  .hm-legend span { font-size: 10px; color: var(--text3); display: flex; align-items: center; gap: 4px; }
+  .hm-legend .dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* Mistake DNA */
+  .dna-chart { display: flex; flex-direction: column; gap: 8px; }
+  .dna-row { display: flex; align-items: center; gap: 10px; }
+  .dna-label { font-size: 11px; color: var(--text2); width: 110px; text-align: right; flex-shrink: 0; }
+  .dna-bar-bg { flex: 1; height: 22px; background: var(--bg); border-radius: 6px; overflow: hidden; position: relative; }
+  .dna-bar-fill { height: 100%; border-radius: 6px; transition: width .4s ease; display: flex; align-items: center; padding-left: 8px; }
+  .dna-bar-fill span { font-size: 10px; font-weight: 700; color: #fff; white-space: nowrap; }
+  .dna-trend { font-size: 10px; width: 50px; text-align: center; font-weight: 600; }
+
+  /* Mastery tree */
+  .mastery-tree { display: flex; flex-direction: column; gap: 6px; }
+  .mastery-node { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: var(--radius-sm); background: var(--bg); }
+  .mastery-ring {
+    width: 32px; height: 32px; border-radius: 50%; position: relative; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mastery-ring svg { transform: rotate(-90deg); }
+  .mastery-ring .ring-text { position: absolute; font-size: 9px; font-weight: 800; }
+  .mastery-info { flex: 1; }
+  .mastery-info .m-title { font-size: 12px; font-weight: 600; }
+  .mastery-info .m-sub { font-size: 10px; color: var(--text3); }
+  .mastery-glow { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Daily challenge */
+  .daily-card { background: var(--bg); border-radius: var(--radius); padding: 14px; text-align: center; }
+  .daily-streak { display: flex; gap: 4px; justify-content: center; margin: 10px 0; }
+  .streak-day {
+    width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+  }
+  .daily-q { background: var(--bg3); border-radius: var(--radius-sm); padding: 12px; margin-top: 10px; text-align: left; }
+  .daily-q .dq-num { font-size: 10px; color: var(--accent2); font-weight: 700; margin-bottom: 4px; }
+  .daily-q .dq-text { font-size: 12px; color: var(--text); line-height: 1.5; }
+  .daily-timer { font-size: 24px; font-weight: 800; color: var(--orange); margin: 8px 0; font-variant-numeric: tabular-nums; }
+
+  /* Leaderboard */
+  .lb-table { width: 100%; }
+  .lb-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: var(--radius-sm); transition: background .15s; }
+  .lb-row:nth-child(odd) { background: var(--bg); }
+  .lb-rank { width: 22px; font-size: 12px; font-weight: 800; text-align: center; }
+  .lb-rank.gold { color: #ffd700; }
+  .lb-rank.silver { color: #c0c0c0; }
+  .lb-rank.bronze { color: #cd7f32; }
+  .lb-avatar { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .lb-name { flex: 1; font-size: 12px; font-weight: 500; }
+  .lb-name.you { color: var(--accent2); font-weight: 700; }
+  .lb-score { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .lb-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+  .lb-tab { font-size: 10px; padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border); background: transparent; color: var(--text3); cursor: pointer; font-weight: 600; transition: all .15s; }
+  .lb-tab.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent2); }
+
+  /* Percentile */
+  .pct-bar-container { margin: 8px 0; }
+  .pct-question { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .pct-q-num { font-size: 11px; font-weight: 700; color: var(--text2); width: 22px; }
+  .pct-bar-outer { flex: 1; height: 18px; background: var(--bg); border-radius: 9px; position: relative; overflow: hidden; }
+  .pct-bar-fill { height: 100%; border-radius: 9px; transition: width .4s; }
+  .pct-marker { position: absolute; top: -2px; width: 2px; height: 22px; background: #fff; border-radius: 1px; }
+  .pct-value { font-size: 10px; font-weight: 700; width: 36px; text-align: right; }
+
+  /* Predictor */
+  .pred-main { text-align: center; }
+  .pred-range { font-size: 36px; font-weight: 800; letter-spacing: -1px; color: var(--cyan); }
+  .pred-label { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .pred-factors { display: flex; gap: 8px; margin-top: 14px; justify-content: center; flex-wrap: wrap; }
+  .pred-factor { background: var(--bg); border-radius: var(--radius-sm); padding: 8px 12px; text-align: center; min-width: 80px; }
+  .pred-factor .pf-val { font-size: 16px; font-weight: 800; }
+  .pred-factor .pf-label { font-size: 9px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .pred-chart { display: flex; align-items: flex-end; gap: 6px; height: 50px; margin-top: 14px; justify-content: center; }
+  .pred-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .pred-col-bar { width: 28px; border-radius: 4px 4px 0 0; }
+  .pred-col-label { font-size: 8px; color: var(--text3); }
+
+  /* Re-solve */
+  .resolve-demo { }
+  .resolve-q { background: var(--bg); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; }
+  .resolve-q .rq-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .resolve-q .rq-num { font-size: 11px; font-weight: 700; color: var(--text2); }
+  .resolve-q .rq-status { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; }
+  .resolve-q .rq-text { font-size: 12px; color: var(--text); margin-bottom: 8px; line-height: 1.5; }
+  .resolve-opts { display: flex; gap: 6px; }
+  .resolve-opt {
+    flex: 1; padding: 7px; border-radius: var(--radius-sm); border: 1.5px solid var(--border); background: transparent;
+    color: var(--text2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; text-align: center;
+  }
+  .resolve-opt.wrong { border-color: var(--red); color: var(--red); background: var(--red-bg); text-decoration: line-through; }
+  .resolve-opt.correct { border-color: var(--green); color: var(--green); background: var(--green-bg); }
+  .resolve-hint { background: var(--orange-bg); border-left: 3px solid var(--orange); padding: 8px 10px; border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-top: 8px; }
+  .resolve-hint .rh-label { font-size: 9px; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+  .resolve-hint .rh-text { font-size: 11px; color: var(--text); line-height: 1.5; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>Feature Explorer</h1>
+      <p>Toggle, prioritize, and preview each feature. Click a card to focus its preview.</p>
+    </div>
+    <div class="presets" id="presets"></div>
+    <div class="sidebar-content" id="feature-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="preview-area">
+      <div class="preview-grid" id="preview-grid"></div>
+    </div>
+    <div class="prompt-bar">
+      <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">Copy Prompt</button>
+      <div class="prompt-text" id="prompt-output"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Notes panel -->
+<button class="notes-toggle" id="notes-toggle" onclick="toggleNotes()">
+  <span>💬</span>
+  <div class="notes-badge" id="notes-badge" style="display:none">0</div>
+</button>
+<div class="notes-panel" id="notes-panel">
+  <div class="notes-header">
+    <h2>Discussion Notes</h2>
+    <button class="notes-close" onclick="toggleNotes()">&times;</button>
+  </div>
+  <div class="notes-body" id="notes-body">
+    <div style="text-align:center;padding:30px 0;color:var(--text3);font-size:12px;">
+      Select a feature and add your feedback below.
+    </div>
+  </div>
+  <div class="notes-input">
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px;" id="note-context">About: <strong>Select a feature</strong></div>
+    <textarea id="note-input" placeholder="Your thoughts on this feature..."></textarea>
+    <button onclick="addNote()">Add Note</button>
+  </div>
+</div>
+
+<script>
+// ─── Feature definitions ───
+const FEATURES = [
+  {
+    id: 'elo', icon: '⚡', title: 'Elo Rating System', color: 'var(--accent)', colorBg: 'var(--accent-bg)',
+    desc: 'Chess-like rating that changes after every exam. Students obsess over their number.',
+    tier: 'Gamification', priority: 1, enabled: true,
+  },
+  {
+    id: 'heatmap', icon: '🔥', title: 'Time Heatmap', color: 'var(--red)', colorBg: 'var(--red-bg)',
+    desc: 'Color-coded grid showing time spent + correctness per question. Instant "wow" factor.',
+    tier: 'Post-Exam Intelligence', priority: 1, enabled: true,
+  },
+  {
+    id: 'dna', icon: '🧬', title: 'Mistake DNA Analysis', color: 'var(--pink)', colorBg: 'var(--pink-bg)',
+    desc: 'Categorize errors into types: arithmetic slip, concept gap, time pressure, misread.',
+    tier: 'Post-Exam Intelligence', priority: 2, enabled: true,
+  },
+  {
+    id: 'mastery', icon: '🌳', title: 'Topic Mastery Tree', color: 'var(--green)', colorBg: 'var(--green-bg)',
+    desc: 'Visual skill tree showing progress per math topic. Incomplete nodes glow.',
+    tier: 'Gamification', priority: 2, enabled: true,
+  },
+  {
+    id: 'daily', icon: '🎯', title: 'Daily Mini-Challenge', color: 'var(--orange)', colorBg: 'var(--orange-bg)',
+    desc: '3 questions from weak topics, 60s each. Streak counter via Telegram.',
+    tier: 'Engagement', priority: 1, enabled: true,
+  },
+  {
+    id: 'leaderboard', icon: '🏆', title: 'Multi-Category Leaderboard', color: 'var(--orange)', colorBg: 'var(--orange-bg)',
+    desc: 'Not just top score — Most Improved, Fastest, Best per topic. Everyone can win.',
+    tier: 'Social', priority: 3, enabled: true,
+  },
+  {
+    id: 'percentile', icon: '📊', title: 'Per-Question Percentile', color: 'var(--blue)', colorBg: 'var(--blue-bg)',
+    desc: 'After exam closes: "72% got this right — you were in the top 28%."',
+    tier: 'Post-Exam Intelligence', priority: 2, enabled: true,
+  },
+  {
+    id: 'resolve', icon: '🔄', title: 'Interactive Re-solve Mode', color: 'var(--cyan)', colorBg: 'var(--cyan-bg)',
+    desc: 'Retry wrong questions with progressive hints. Turns exams into learning.',
+    tier: 'Learning', priority: 1, enabled: true,
+  },
+  {
+    id: 'predictor', icon: '🔮', title: 'Performance Predictor', color: 'var(--cyan)', colorBg: 'var(--cyan-bg)',
+    desc: 'After 3+ exams: "Predicted score: 78-84." Students come back to beat it.',
+    tier: 'Smart', priority: 3, enabled: true,
+  },
+];
+
+const PRESETS = [
+  { name: 'MVP Sprint', desc: 'Top 4 features for launch', ids: ['elo','heatmap','daily','resolve'] },
+  { name: 'Data-Driven', desc: 'Analytics-heavy approach', ids: ['heatmap','dna','percentile','predictor'] },
+  { name: 'Social & Fun', desc: 'Gamification focus', ids: ['elo','leaderboard','daily','mastery'] },
+  { name: 'Full Suite', desc: 'Everything enabled', ids: FEATURES.map(f => f.id) },
+];
+
+let state = {
+  features: FEATURES.map(f => ({ ...f })),
+  selectedFeature: 'elo',
+  notes: [],
+  activePreset: null,
+};
+
+// ─── Render sidebar ───
+function renderSidebar() {
+  // Presets
+  const presetsEl = document.getElementById('presets');
+  presetsEl.innerHTML = PRESETS.map((p, i) =>
+    `<button class="preset-btn ${state.activePreset === i ? 'active' : ''}" onclick="applyPreset(${i})" title="${p.desc}">${p.name}</button>`
+  ).join('');
+
+  // Feature cards
+  const listEl = document.getElementById('feature-list');
+  listEl.innerHTML = state.features.map(f => `
+    <div class="feature-card ${state.selectedFeature === f.id ? 'selected' : ''}" onclick="selectFeature('${f.id}')">
+      <label class="fc-toggle" onclick="event.stopPropagation()">
+        <input type="checkbox" ${f.enabled ? 'checked' : ''} onchange="toggleFeature('${f.id}', this.checked)">
+        <span class="slider"></span>
+      </label>
+      <div class="fc-head">
+        <div class="fc-icon" style="background:${f.colorBg};color:${f.color}">${f.icon}</div>
+        <div class="fc-title">${f.title}</div>
+      </div>
+      <div class="fc-desc">${f.desc}</div>
+      <div class="fc-priority">
+        <label>Priority</label>
+        ${[1,2,3,4].map(p => `<div class="priority-dot ${f.priority === p ? 'p'+p : ''}" onclick="event.stopPropagation();setPriority('${f.id}',${p})">${p}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Render previews ───
+function renderPreviews() {
+  const grid = document.getElementById('preview-grid');
+  grid.innerHTML = state.features.map(f => `
+    <div class="preview-card ${!f.enabled ? 'hidden-feature' : ''} ${state.selectedFeature === f.id ? 'highlight' : ''}" id="preview-${f.id}">
+      <div class="pc-header">
+        <span class="pc-icon">${f.icon}</span>
+        <h3>${f.title}</h3>
+        <span class="pc-badge" style="background:${f.colorBg};color:${f.color}">${f.tier}</span>
+      </div>
+      <div class="pc-body">${renderFeaturePreview(f.id)}</div>
+    </div>
+  `).join('');
+}
+
+function renderFeaturePreview(id) {
+  switch(id) {
+    case 'elo': return renderElo();
+    case 'heatmap': return renderHeatmap();
+    case 'dna': return renderDNA();
+    case 'mastery': return renderMastery();
+    case 'daily': return renderDaily();
+    case 'leaderboard': return renderLeaderboard();
+    case 'percentile': return renderPercentile();
+    case 'resolve': return renderResolve();
+    case 'predictor': return renderPredictor();
+    default: return '';
+  }
+}
+
+function renderElo() {
+  const history = [1180,1210,1195,1240,1265,1250,1290,1312];
+  const max = Math.max(...history);
+  const min = Math.min(...history);
+  const range = max - min || 1;
+  const labels = ['E1','E2','E3','E4','E5','E6','E7','E8'];
+  return `
+    <div class="elo-display">
+      <div class="elo-number">1312</div>
+      <div class="elo-label">Your Rating</div>
+      <div class="elo-change up">▲ +22 from last exam</div>
+      <div class="elo-history">
+        ${history.map((v,i) => {
+          const h = 10 + ((v - min) / range) * 45;
+          const clr = i === history.length-1 ? 'var(--accent)' : 'var(--bg4)';
+          return `<div class="elo-bar" style="height:${h}px;background:${clr}"><span class="elo-bar-label">${labels[i]}</span></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+function renderHeatmap() {
+  const data = [];
+  for (let i = 1; i <= 27; i++) {
+    const correct = Math.random() > 0.3;
+    const time = Math.floor(Math.random() * 180) + 20;
+    const fast = time < 60;
+    let bg, fg;
+    if (correct && fast) { bg = 'var(--green)'; fg = '#fff'; }
+    else if (correct && !fast) { bg = 'var(--orange)'; fg = '#1a1a2e'; }
+    else { bg = 'var(--red)'; fg = '#fff'; }
+    data.push({ q: i, time, bg, fg });
+  }
+  return `
+    <div class="heatmap-grid">
+      ${data.map(d => `<div class="hm-cell" style="background:${d.bg};color:${d.fg}"><span class="hm-q">${d.q}</span><span class="hm-time">${d.time}s</span></div>`).join('')}
+    </div>
+    <div class="hm-legend">
+      <span><span class="dot" style="background:var(--green)"></span> Fast & Correct</span>
+      <span><span class="dot" style="background:var(--orange)"></span> Slow & Correct</span>
+      <span><span class="dot" style="background:var(--red)"></span> Wrong</span>
+    </div>`;
+}
+
+function renderDNA() {
+  const types = [
+    { label: 'Concept Gap', pct: 42, color: 'var(--red)', trend: '▼ 8%' },
+    { label: 'Arithmetic Slip', pct: 28, color: 'var(--orange)', trend: '▲ 3%' },
+    { label: 'Time Pressure', pct: 18, color: 'var(--blue)', trend: '▼ 12%' },
+    { label: 'Misread Question', pct: 12, color: 'var(--pink)', trend: '—' },
+  ];
+  return `<div class="dna-chart">${types.map(t => `
+    <div class="dna-row">
+      <div class="dna-label">${t.label}</div>
+      <div class="dna-bar-bg"><div class="dna-bar-fill" style="width:${t.pct}%;background:${t.color}"><span>${t.pct}%</span></div></div>
+      <div class="dna-trend" style="color:${t.trend.startsWith('▼') ? 'var(--green)' : t.trend.startsWith('▲') ? 'var(--red)' : 'var(--text3)'}">${t.trend}</div>
+    </div>`).join('')}</div>`;
+}
+
+function renderMastery() {
+  const topics = [
+    { name: 'Algebra', sub: '14/18 correct', pct: 78, color: 'var(--green)' },
+    { name: 'Geometry', sub: '9/15 correct', pct: 60, color: 'var(--orange)' },
+    { name: 'Trigonometry', sub: '5/12 correct', pct: 42, color: 'var(--red)' },
+    { name: 'Probability', sub: '8/8 correct', pct: 100, color: 'var(--accent)' },
+    { name: 'Calculus', sub: '3/10 correct', pct: 30, color: 'var(--red)' },
+  ];
+  const r = 13, cx = 16, cy = 16, circ = 2 * Math.PI * r;
+  return `<div class="mastery-tree">${topics.map(t => {
+    const offset = circ - (t.pct / 100) * circ;
+    const glow = t.pct < 100 && t.pct > 0 ? `background:${t.color};opacity:0.6;animation:pulse 2s infinite` : t.pct === 100 ? `background:var(--accent)` : `background:var(--border)`;
+    return `<div class="mastery-node">
+      <div class="mastery-ring">
+        <svg width="32" height="32"><circle cx="${cx}" cy="${cy}" r="${r}" stroke="var(--bg4)" stroke-width="3" fill="none"/><circle cx="${cx}" cy="${cy}" r="${r}" stroke="${t.color}" stroke-width="3" fill="none" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"/></svg>
+        <span class="ring-text" style="color:${t.color}">${t.pct}%</span>
+      </div>
+      <div class="mastery-info"><div class="m-title">${t.name}</div><div class="m-sub">${t.sub}</div></div>
+      <div class="mastery-glow" style="${glow}"></div>
+    </div>`;
+  }).join('')}</div>
+  <style>@keyframes pulse{0%,100%{opacity:0.4;transform:scale(1)}50%{opacity:1;transform:scale(1.5)}}</style>`;
+}
+
+function renderDaily() {
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const streaks = [true,true,true,true,true,true,false];
+  return `
+    <div class="daily-card">
+      <div style="font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Current Streak</div>
+      <div style="font-size:28px;font-weight:800;color:var(--orange);margin:4px 0">🔥 12 days</div>
+      <div class="daily-streak">
+        ${days.map((d,i) => `<div class="streak-day" style="background:${streaks[i] ? 'var(--green-bg)' : 'var(--bg3)'};color:${streaks[i] ? 'var(--green)' : 'var(--text3)'}">${d[0]}</div>`).join('')}
+      </div>
+      <div class="daily-q">
+        <div class="dq-num">Question 2 of 3 — Trigonometry</div>
+        <div class="dq-text">If sin(x) = 3/5 and x is in the first quadrant, find cos(2x).</div>
+      </div>
+      <div class="daily-timer">0:47</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        ${['A) 7/25','B) -7/25','C) 24/25','D) -24/25'].map(o => `<div style="flex:1;padding:6px;border-radius:var(--radius-sm);border:1px solid var(--border);text-align:center;font-size:11px;color:var(--text2);cursor:pointer;font-weight:500">${o}</div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function renderLeaderboard() {
+  const users = [
+    { name: 'Jasur T.', score: 1456, color: '#6c5ce7', me: false },
+    { name: 'Nodira K.', score: 1398, color: '#00b894', me: false },
+    { name: 'Sardor M.', score: 1312, color: '#fd79a8', me: true },
+    { name: 'Zilola A.', score: 1290, color: '#fdcb6e', me: false },
+    { name: 'Bekzod R.', score: 1245, color: '#74b9ff', me: false },
+  ];
+  const ranks = ['gold','silver','bronze','',''];
+  return `
+    <div class="lb-tabs">
+      <button class="lb-tab active">Top Score</button>
+      <button class="lb-tab">Most Improved</button>
+      <button class="lb-tab">Fastest</button>
+      <button class="lb-tab">Geometry</button>
+    </div>
+    <div class="lb-table">
+      ${users.map((u,i) => `<div class="lb-row">
+        <div class="lb-rank ${ranks[i]}">${i+1}</div>
+        <div class="lb-avatar" style="background:${u.color}">${u.name[0]}</div>
+        <div class="lb-name ${u.me ? 'you' : ''}">${u.name}${u.me ? ' (You)' : ''}</div>
+        <div class="lb-score">${u.score}</div>
+      </div>`).join('')}
+    </div>`;
+}
+
+function renderPercentile() {
+  const questions = [
+    { q: 5, yourPct: 85, classPct: 72 },
+    { q: 12, yourPct: 45, classPct: 68 },
+    { q: 18, yourPct: 92, classPct: 41 },
+    { q: 23, yourPct: 30, classPct: 55 },
+    { q: 31, yourPct: 78, classPct: 78 },
+  ];
+  return `<div class="pct-bar-container">${questions.map(q => {
+    const yourColor = q.yourPct >= q.classPct ? 'var(--green)' : 'var(--red)';
+    return `<div class="pct-question">
+      <div class="pct-q-num">${q.q}.</div>
+      <div class="pct-bar-outer">
+        <div class="pct-bar-fill" style="width:${q.classPct}%;background:var(--bg4);opacity:0.5"></div>
+        <div class="pct-marker" style="left:${q.yourPct}%;background:${yourColor}"></div>
+      </div>
+      <div class="pct-value" style="color:${yourColor}">${q.yourPct}%</div>
+    </div>`;
+  }).join('')}
+  <div style="display:flex;gap:16px;margin-top:8px;justify-content:center">
+    <span style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px"><span style="width:20px;height:8px;background:var(--bg4);opacity:0.5;border-radius:4px;display:inline-block"></span> Class average</span>
+    <span style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:4px"><span style="width:2px;height:12px;background:var(--green);border-radius:1px;display:inline-block"></span> Your position</span>
+  </div></div>`;
+}
+
+function renderResolve() {
+  return `<div class="resolve-demo">
+    <div class="resolve-q">
+      <div class="rq-head">
+        <span class="rq-num">Question 12</span>
+        <span class="rq-status" style="background:var(--red-bg);color:var(--red)">Wrong</span>
+      </div>
+      <div class="rq-text">Find the value of x if log₂(x) + log₂(x-2) = 3</div>
+      <div class="resolve-opts">
+        <div class="resolve-opt wrong">A) 2</div>
+        <div class="resolve-opt correct">B) 4</div>
+        <div class="resolve-opt">C) 6</div>
+        <div class="resolve-opt">D) 8</div>
+      </div>
+      <div class="resolve-hint">
+        <div class="rh-label">Hint 1 of 3</div>
+        <div class="rh-text">Combine the logs: log₂(x(x-2)) = 3. Now convert to exponential form...</div>
+      </div>
+    </div>
+    <div class="resolve-q" style="opacity:0.5">
+      <div class="rq-head">
+        <span class="rq-num">Question 23</span>
+        <span class="rq-status" style="background:var(--orange-bg);color:var(--orange)">Retry</span>
+      </div>
+      <div class="rq-text">If f(x) = x³ - 3x² + 2, find f'(2).</div>
+      <div class="resolve-opts">
+        <div class="resolve-opt">A) 0</div>
+        <div class="resolve-opt">B) 2</div>
+        <div class="resolve-opt">C) -2</div>
+        <div class="resolve-opt">D) 4</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPredictor() {
+  const exams = [
+    { label: 'E5', score: 68 },
+    { label: 'E6', score: 74 },
+    { label: 'E7', score: 71 },
+    { label: 'E8', score: 79 },
+    { label: 'Next', score: null },
+  ];
+  return `<div class="pred-main">
+    <div class="pred-range">78 — 84</div>
+    <div class="pred-label">Predicted Score Range (Next Exam)</div>
+    <div class="pred-factors">
+      <div class="pred-factor"><div class="pf-val" style="color:var(--green)">▲ 6%</div><div class="pf-label">Trend</div></div>
+      <div class="pred-factor"><div class="pf-val" style="color:var(--orange)">72%</div><div class="pf-label">Consistency</div></div>
+      <div class="pred-factor"><div class="pf-val" style="color:var(--accent)">1312</div><div class="pf-label">Elo</div></div>
+    </div>
+    <div class="pred-chart">
+      ${exams.map(e => {
+        const h = e.score ? (e.score / 100) * 45 + 5 : 0;
+        const bg = e.score ? 'var(--bg4)' : 'none';
+        const border = !e.score ? '2px dashed var(--cyan)' : 'none';
+        const predH = !e.score ? 40 : 0;
+        return `<div class="pred-col">
+          <div class="pred-col-bar" style="height:${e.score ? h : predH}px;background:${bg};border:${border};width:28px;border-radius:4px"></div>
+          <div class="pred-col-label">${e.label}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ─── State updates ───
+function selectFeature(id) {
+  state.selectedFeature = id;
+  document.getElementById('note-context').innerHTML = `About: <strong>${state.features.find(f=>f.id===id).title}</strong>`;
+  renderAll();
+}
+
+function toggleFeature(id, enabled) {
+  state.features.find(f => f.id === id).enabled = enabled;
+  state.activePreset = null;
+  renderAll();
+}
+
+function setPriority(id, p) {
+  state.features.find(f => f.id === id).priority = p;
+  state.activePreset = null;
+  renderAll();
+}
+
+function applyPreset(i) {
+  state.activePreset = i;
+  const preset = PRESETS[i];
+  state.features.forEach(f => {
+    f.enabled = preset.ids.includes(f.id);
+    if (preset.ids.includes(f.id)) {
+      f.priority = preset.ids.indexOf(f.id) < 2 ? 1 : preset.ids.indexOf(f.id) < 3 ? 2 : 3;
+    }
+  });
+  renderAll();
+}
+
+// ─── Notes ───
+function toggleNotes() {
+  document.getElementById('notes-panel').classList.toggle('open');
+}
+
+function addNote() {
+  const input = document.getElementById('note-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const feature = state.features.find(f => f.id === state.selectedFeature);
+  state.notes.push({ feature: feature.title, featureId: feature.id, text, time: new Date().toLocaleTimeString() });
+  input.value = '';
+  renderNotes();
+}
+
+function renderNotes() {
+  const body = document.getElementById('notes-body');
+  const badge = document.getElementById('notes-badge');
+  if (state.notes.length === 0) {
+    body.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text3);font-size:12px;">Select a feature and add your feedback below.</div>';
+    badge.style.display = 'none';
+  } else {
+    body.innerHTML = state.notes.slice().reverse().map(n => `
+      <div class="note-item">
+        <div class="note-feature">${n.feature}</div>
+        <div class="note-text">${n.text}</div>
+        <div class="note-time">${n.time}</div>
+      </div>
+    `).join('');
+    badge.textContent = state.notes.length;
+    badge.style.display = 'flex';
+  }
+}
+
+// ─── Prompt output ───
+function updatePrompt() {
+  const enabled = state.features.filter(f => f.enabled).sort((a,b) => a.priority - b.priority);
+  if (enabled.length === 0) {
+    document.getElementById('prompt-output').textContent = 'Enable at least one feature to generate a prompt.';
+    return;
+  }
+
+  const priorityLabels = { 1: 'P1 (Must-have)', 2: 'P2 (Should-have)', 3: 'P3 (Nice-to-have)', 4: 'P4 (Future)' };
+  const grouped = {};
+  enabled.forEach(f => {
+    const label = priorityLabels[f.priority] || 'P4 (Future)';
+    if (!grouped[label]) grouped[label] = [];
+    grouped[label].push(f);
+  });
+
+  let prompt = `Implement the following features for our math exam platform (React + TypeScript + Tailwind):\n\n`;
+
+  for (const [priority, features] of Object.entries(grouped)) {
+    prompt += `## ${priority}\n`;
+    features.forEach(f => {
+      prompt += `- **${f.title}**: ${f.desc}\n`;
+    });
+    prompt += '\n';
+  }
+
+  if (state.notes.length > 0) {
+    prompt += `## Discussion Notes\n`;
+    state.notes.forEach(n => {
+      prompt += `- [${n.feature}]: ${n.text}\n`;
+    });
+    prompt += '\n';
+  }
+
+  prompt += `Tech stack: React, TypeScript, Tailwind CSS, react-pdf, Telegram Mini App support.\n`;
+  prompt += `Existing data: answer timestamps, question correctness, session history, user profiles.`;
+
+  document.getElementById('prompt-output').textContent = prompt;
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-output').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy Prompt'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+// ─── Render all ───
+function renderAll() {
+  renderSidebar();
+  renderPreviews();
+  updatePrompt();
+}
+
+// ─── Init ───
+renderAll();
+renderNotes();
+document.getElementById('note-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addNote(); }
+});
+</script>
+</body>
+</html>

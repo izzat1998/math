@@ -5,9 +5,11 @@ from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
-from .models import MockExam, ExamSession, StudentAnswer, CorrectAnswer
+from .models import MockExam, ExamSession, StudentAnswer, CorrectAnswer, EloHistory
 from .permissions import StudentJWTAuthentication, IsStudent
-from .scoring import compute_score
+from rest_framework.permissions import AllowAny
+from .scoring import compute_score, compute_rasch_score
+from .elo import update_elo_after_submission
 from .serializers import MockExamSerializer
 
 student_auth = [StudentJWTAuthentication]
@@ -17,8 +19,18 @@ ALREADY_SUBMITTED_MSG = 'Allaqachon topshirilgan'
 
 
 @api_view(['GET'])
+@permission_classes([AllowAny])
+def latest_exam(request):
+    """Public endpoint: returns the latest exam ID."""
+    exam = MockExam.objects.order_by('-created_at').first()
+    if not exam:
+        return Response({'error': 'No exams found'}, status=status.HTTP_404_NOT_FOUND)
+    return Response({'exam_id': str(exam.id)})
+
+
+@api_view(['GET'])
 @authentication_classes(student_auth)
-@permission_classes(student_perm)
+@permission_classes([AllowAny])
 def exam_detail(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
     now = timezone.now()
@@ -30,7 +42,7 @@ def exam_detail(request, exam_id):
 
 @api_view(['GET'])
 @authentication_classes(student_auth)
-@permission_classes(student_perm)
+@permission_classes([AllowAny])
 def exam_pdf(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
     return FileResponse(exam.pdf_file.open(), content_type='application/pdf')
@@ -130,12 +142,27 @@ def session_results(request, session_id):
         for a in answers
     ]
 
+    elo_data = None
+    try:
+        snapshot = session.elo_snapshot
+        elo_data = {
+            'elo_before': snapshot.elo_before,
+            'elo_after': snapshot.elo_after,
+            'elo_delta': snapshot.elo_delta,
+        }
+    except EloHistory.DoesNotExist:
+        pass
+
+    rasch_data = compute_rasch_score(session)
+
     return Response({
         **score,
         'is_auto_submitted': session.is_auto_submitted,
         'exam_closed': exam_closed,
         'exam_title': session.exam.title,
         'breakdown': breakdown,
+        'elo': elo_data,
+        'rasch': rasch_data,
     })
 
 
@@ -149,6 +176,46 @@ def _session_payload(session, exam):
         'started_at': session.started_at.isoformat(),
         'duration': exam.duration,
     }
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def upcoming_exam(request):
+    now = timezone.now()
+    exam = MockExam.objects.filter(
+        is_scheduled=True,
+        scheduled_end__gt=now,
+    ).order_by('scheduled_start').first()
+
+    if not exam:
+        return Response({'exam': None})
+
+    return Response({
+        'exam': {
+            'id': str(exam.id),
+            'title': exam.title,
+            'scheduled_start': exam.scheduled_start.isoformat(),
+            'scheduled_end': exam.scheduled_end.isoformat(),
+            'has_started': now >= exam.scheduled_start,
+        }
+    })
+
+
+@api_view(['GET'])
+@authentication_classes(student_auth)
+@permission_classes(student_perm)
+def exam_lobby(request, exam_id):
+    exam = get_object_or_404(MockExam, id=exam_id, is_scheduled=True)
+    now = timezone.now()
+
+    return Response({
+        'id': str(exam.id),
+        'title': exam.title,
+        'scheduled_start': exam.scheduled_start.isoformat(),
+        'scheduled_end': exam.scheduled_end.isoformat(),
+        'has_started': now >= exam.scheduled_start,
+        'has_ended': now >= exam.scheduled_end,
+    })
 
 
 def _submit_session(session, auto=False):
@@ -170,3 +237,5 @@ def _submit_session(session, auto=False):
     session.submitted_at = timezone.now()
     session.is_auto_submitted = auto
     session.save()
+
+    update_elo_after_submission(session)

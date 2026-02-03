@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rasch Model — Math Exam Configurator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--panel:#161b22;--border:#30363d;--text:#c9d1d9;--muted:#8b949e;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--yellow:#d29922;--purple:#bc8cff;--pink:#f778ba}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+#app{display:grid;grid-template-columns:340px 1fr;height:100vh}
+#sidebar{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+#sidebar::-webkit-scrollbar{width:6px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+h1{font-size:18px;color:#fff;letter-spacing:-0.5px}
+.subtitle{font-size:12px;color:var(--muted);margin-top:2px}
+.section{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:8px;padding:14px}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px;font-weight:600}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.preset-btn{padding:6px 12px;border:1px solid var(--border);background:transparent;color:var(--text);border-radius:6px;cursor:pointer;font-size:12px;transition:all .15s}
+.preset-btn:hover{border-color:var(--accent);color:var(--accent)}
+.preset-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.control-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.control-row label{font-size:12px;color:var(--muted);min-width:60px;flex-shrink:0}
+.control-row input[type=range]{flex:1;accent-color:var(--accent);height:4px}
+.control-row .val{font-size:12px;color:var(--accent);font-family:monospace;min-width:36px;text-align:right}
+.student-card{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px}
+.student-card .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.student-card .name{font-size:12px;min-width:70px;color:var(--text)}
+.student-card input[type=range]{flex:1;height:3px}
+.student-card .theta-val{font-size:11px;font-family:monospace;color:var(--accent);min-width:32px;text-align:right}
+.student-card .remove-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px;opacity:0.5}
+.student-card .remove-btn:hover{opacity:1}
+.btn{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;width:100%}
+.btn+.btn{margin-top:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#79c0ff}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+.btn-danger:hover{background:var(--red);color:#fff}
+#main{display:flex;flex-direction:column;overflow:hidden}
+.tab-bar{display:flex;background:var(--panel);border-bottom:1px solid var(--border);padding:0 12px;flex-shrink:0;overflow-x:auto}
+.tab-btn{padding:10px 14px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-size:12px;white-space:nowrap;transition:all .15s}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{flex:1;position:relative;overflow:hidden}
+.tab-panel{display:none;position:absolute;inset:0}
+.tab-panel.active{display:flex;flex-direction:column}
+.tab-panel canvas{display:block;flex:1}
+.panel-scroll{padding:24px;overflow-y:auto;flex:1}
+.info-box{background:rgba(88,166,255,0.08);border:1px solid rgba(88,166,255,0.2);border-radius:8px;padding:14px;margin-bottom:20px;font-size:13px;line-height:1.5}
+.info-box code{background:rgba(255,255,255,0.08);padding:2px 6px;border-radius:3px;font-family:monospace;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;background:rgba(255,255,255,0.04);border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px}
+td{padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04)}
+tr:hover td{background:rgba(255,255,255,0.02)}
+.flag-good{color:var(--green)}
+.flag-warn{color:var(--yellow)}
+.flag-bad{color:var(--red)}
+.rank-diff{font-weight:600}
+.rank-up{color:var(--green)}
+.rank-down{color:var(--red)}
+.rank-same{color:var(--muted)}
+.no-data{text-align:center;padding:60px 20px;color:var(--muted)}
+.no-data p{margin-top:8px;font-size:13px}
+.no-data .icon{font-size:36px;opacity:0.3}
+.mle-select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px;margin-bottom:16px}
+.iter-converged{color:var(--green);font-weight:600}
+.elo-comparison{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px}
+.elo-card{border:1px solid var(--border);border-radius:8px;padding:16px}
+.elo-card h4{font-size:13px;margin-bottom:12px;color:var(--muted)}
+.elo-card.current{border-color:var(--yellow)}
+.elo-card.rasch{border-color:var(--accent)}
+.elo-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}
+.elo-row .label{color:var(--muted)}
+.elo-row .value{font-family:monospace}
+#prompt-bar{background:var(--panel);border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:12px;flex-shrink:0;min-height:60px;max-height:140px}
+#prompt-text{flex:1;font-family:monospace;font-size:11px;color:var(--muted);overflow-y:auto;line-height:1.5;white-space:pre-wrap}
+.copy-btn{padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;align-self:flex-start;flex-shrink:0;transition:all .15s}
+.copy-btn:hover{background:#79c0ff}
+.copy-btn.copied{background:var(--green)}
+.legend{display:flex;gap:16px;padding:8px 16px;font-size:11px;color:var(--muted);background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border)}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-swatch{width:12px;height:12px;border-radius:2px}
+.color-bar{display:flex;height:14px;border-radius:3px;overflow:hidden;margin-top:8px;width:200px}
+.tooltip{position:absolute;background:#1c2333;border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:12px;pointer-events:none;z-index:100;white-space:nowrap;display:none}
+.sim-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;margin-left:6px}
+.sim-needed{background:rgba(248,81,73,0.15);color:var(--red)}
+</style>
+</head>
+<body>
+<div id="app">
+<aside id="sidebar">
+  <div>
+    <h1>Rasch Model</h1>
+    <p class="subtitle">Math Exam Configurator &middot; 55 items</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Exam Preset</div>
+    <div class="presets" id="preset-btns"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">MCQ Items (Q1–Q35)</div>
+    <div class="control-row">
+      <label>Mean &beta;</label>
+      <input type="range" min="-3" max="3" step="0.1" id="mcq-mean" oninput="onSliderChange()">
+      <span class="val" id="mcq-mean-v"></span>
+    </div>
+    <div class="control-row">
+      <label>Spread</label>
+      <input type="range" min="0.2" max="3" step="0.1" id="mcq-spread" oninput="onSliderChange()">
+      <span class="val" id="mcq-spread-v"></span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Exercise Items (Q36–Q45, a+b)</div>
+    <div class="control-row">
+      <label>Mean &beta;</label>
+      <input type="range" min="-3" max="4" step="0.1" id="ex-mean" oninput="onSliderChange()">
+      <span class="val" id="ex-mean-v"></span>
+    </div>
+    <div class="control-row">
+      <label>Spread</label>
+      <input type="range" min="0.2" max="3" step="0.1" id="ex-spread" oninput="onSliderChange()">
+      <span class="val" id="ex-spread-v"></span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Item Noise</div>
+    <div class="control-row">
+      <label>Amount</label>
+      <input type="range" min="0" max="1.5" step="0.05" id="noise" value="0.3" oninput="onSliderChange()">
+      <span class="val" id="noise-v"></span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Students</div>
+    <div id="student-list"></div>
+    <button class="btn btn-secondary" onclick="addStudent()">+ Add Student</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Actions</div>
+    <button class="btn btn-primary" onclick="simulateExam()">Simulate Exam</button>
+    <button class="btn btn-secondary" onclick="exportConfig()">Export JSON Config</button>
+  </div>
+</aside>
+
+<main id="main">
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="wright" onclick="switchTab('wright')">Wright Map</button>
+    <button class="tab-btn" data-tab="heatmap" onclick="switchTab('heatmap')">Probability Matrix</button>
+    <button class="tab-btn" data-tab="scoring" onclick="switchTab('scoring')">Scoring<span class="sim-badge sim-needed" id="badge-scoring">SIM</span></button>
+    <button class="tab-btn" data-tab="fit" onclick="switchTab('fit')">Fit Statistics<span class="sim-badge sim-needed" id="badge-fit">SIM</span></button>
+    <button class="tab-btn" data-tab="elo" onclick="switchTab('elo')">ELO Integration<span class="sim-badge sim-needed" id="badge-elo">SIM</span></button>
+    <button class="tab-btn" data-tab="mle" onclick="switchTab('mle')">MLE Demo<span class="sim-badge sim-needed" id="badge-mle">SIM</span></button>
+  </nav>
+
+  <div class="tab-content">
+    <div class="tab-panel active" id="panel-wright">
+      <canvas id="wright-canvas"></canvas>
+    </div>
+    <div class="tab-panel" id="panel-heatmap">
+      <div class="legend" id="heatmap-legend"></div>
+      <canvas id="heatmap-canvas"></canvas>
+      <div class="tooltip" id="heatmap-tip"></div>
+    </div>
+    <div class="tab-panel" id="panel-scoring">
+      <div class="panel-scroll" id="scoring-content"></div>
+    </div>
+    <div class="tab-panel" id="panel-fit">
+      <div class="panel-scroll" id="fit-content"></div>
+    </div>
+    <div class="tab-panel" id="panel-elo">
+      <div class="panel-scroll" id="elo-content"></div>
+    </div>
+    <div class="tab-panel" id="panel-mle">
+      <div class="panel-scroll" id="mle-content"></div>
+    </div>
+  </div>
+
+  <div id="prompt-bar">
+    <div id="prompt-text"></div>
+    <button class="copy-btn" id="copy-btn" onclick="copyPrompt()">Copy</button>
+  </div>
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════
+const PRESETS = {
+  easy:     { mcqMean: -1.5, mcqSpread: 1.0, exMean: -0.5, exSpread: 0.8 },
+  medium:   { mcqMean:  0.0, mcqSpread: 1.5, exMean:  0.5, exSpread: 1.2 },
+  hard:     { mcqMean:  1.0, mcqSpread: 1.5, exMean:  2.0, exSpread: 1.0 },
+  national: { mcqMean:  0.3, mcqSpread: 2.0, exMean:  1.5, exSpread: 1.5 },
+};
+
+const STUDENT_COLORS = ['#f85149','#d29922','#58a6ff','#3fb950','#bc8cff','#f778ba','#79c0ff','#56d364','#ffa657','#ff7b72'];
+
+const DEFAULT_STUDENTS = [
+  { name: 'Weak',      theta: -2.0 },
+  { name: 'Below Avg',  theta: -0.8 },
+  { name: 'Average',    theta:  0.0 },
+  { name: 'Above Avg',  theta:  1.0 },
+  { name: 'Strong',     theta:  2.5 },
+];
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const state = {
+  preset: 'medium',
+  mcqMean: 0, mcqSpread: 1.5,
+  exMean: 0.5, exSpread: 1.2,
+  noise: 0.3,
+  items: [],
+  students: [],
+  responses: null,
+  estimatedThetas: null,
+  mleHistories: null,
+  activeTab: 'wright',
+  nextId: 1,
+};
+
+let noiseSeeds = [];
+
+// ═══════════════════════════════════════════
+// RASCH MATH
+// ═══════════════════════════════════════════
+function raschP(theta, beta) {
+  const d = theta - beta;
+  if (d > 10) return 0.999999;
+  if (d < -10) return 0.000001;
+  return Math.exp(d) / (1 + Math.exp(d));
+}
+
+function estimateTheta(responses, betas, maxIter = 50, tol = 0.001) {
+  const r = responses.reduce((a, b) => a + b, 0);
+  const N = responses.length;
+  if (r === 0) return { theta: -4, history: [{ iter: 0, theta: -4, residual: 0, delta: 0 }] };
+  if (r === N) return { theta: 4, history: [{ iter: 0, theta: 4, residual: 0, delta: 0 }] };
+
+  let theta = Math.log(r / (N - r));
+  const history = [{ iter: 0, theta: +theta.toFixed(4), residual: '-', delta: '-' }];
+
+  for (let iter = 1; iter <= maxIter; iter++) {
+    let sumP = 0, sumPQ = 0;
+    for (let i = 0; i < N; i++) {
+      const p = raschP(theta, betas[i]);
+      sumP += p;
+      sumPQ += p * (1 - p);
+    }
+    const residual = r - sumP;
+    const delta = sumPQ > 0 ? residual / sumPQ : 0;
+    theta += delta;
+    theta = Math.max(-5, Math.min(5, theta));
+    history.push({ iter, theta: +theta.toFixed(4), residual: +Math.abs(residual).toFixed(4), delta: +delta.toFixed(4) });
+    if (Math.abs(delta) < tol) break;
+  }
+  return { theta, history };
+}
+
+function computeItemFit(itemIdx, allResponses, thetas, betas) {
+  const studentIds = Object.keys(allResponses);
+  const N = studentIds.length;
+  if (N === 0) return { infit: 1, outfit: 1 };
+
+  let sumNum = 0, sumDen = 0, sumOutfit = 0;
+  for (const sid of studentIds) {
+    const x = allResponses[sid][itemIdx];
+    const theta = thetas[sid];
+    const p = raschP(theta, betas[itemIdx]);
+    const v = p * (1 - p);
+    const resid = x - p;
+    sumNum += resid * resid;
+    sumDen += v;
+    if (v > 0.0001) sumOutfit += (resid * resid) / v;
+  }
+  return {
+    infit: sumDen > 0 ? sumNum / sumDen : 1,
+    outfit: N > 0 ? sumOutfit / N : 1,
+  };
+}
+
+function rawScore(responses) { return responses.reduce((a, b) => a + b, 0); }
+
+function exerciseScore(responses) {
+  let score = 0;
+  for (let i = 0; i < 35; i++) score += responses[i];
+  for (let q = 0; q < 10; q++) {
+    if (responses[35 + q * 2] && responses[35 + q * 2 + 1]) score++;
+  }
+  return score;
+}
+
+function normalizeTheta(theta) { return 1 / (1 + Math.exp(-theta)); }
+
+function computeElo(scorePercent, examAvg, currentElo, examsTaken) {
+  const k = examsTaken < 5 ? 40 : 20;
+  const opp = 1200 + (examAvg - 0.5) * 800;
+  const exp = 1 / (1 + Math.pow(10, (opp - currentElo) / 400));
+  const delta = Math.round(k * (scorePercent - exp));
+  return { newElo: Math.max(100, currentElo + delta), delta, k, expected: exp, opp };
+}
+
+// ═══════════════════════════════════════════
+// ITEM GENERATION
+// ═══════════════════════════════════════════
+function initNoiseSeeds() {
+  noiseSeeds = Array.from({ length: 55 }, () => (Math.random() - 0.5) * 2);
+}
+
+function generateItems() {
+  const items = [];
+  for (let i = 0; i < 35; i++) {
+    const t = 34 === 0 ? 0 : (i / 34) * 2 - 1;
+    items.push({
+      idx: i, num: i + 1, type: 'mcq', subpart: null,
+      beta: state.mcqMean + t * state.mcqSpread + noiseSeeds[i] * state.noise,
+      label: 'Q' + (i + 1)
+    });
+  }
+  for (let q = 0; q < 10; q++) {
+    for (let pi = 0; pi < 2; pi++) {
+      const part = pi === 0 ? 'a' : 'b';
+      const si = q * 2 + pi;
+      const t = 19 === 0 ? 0 : (si / 19) * 2 - 1;
+      items.push({
+        idx: 35 + si, num: q + 36, type: 'exercise', subpart: part,
+        beta: state.exMean + t * state.exSpread + noiseSeeds[35 + si] * state.noise,
+        label: 'Q' + (q + 36) + part
+      });
+    }
+  }
+  state.items = items;
+}
+
+// ═══════════════════════════════════════════
+// SIMULATION
+// ═══════════════════════════════════════════
+function simulateExam() {
+  const responses = {};
+  const betas = state.items.map(it => it.beta);
+  state.students.forEach(s => {
+    responses[s.id] = state.items.map(item => Math.random() < raschP(s.theta, item.beta) ? 1 : 0);
+  });
+  state.responses = responses;
+
+  state.estimatedThetas = {};
+  state.mleHistories = {};
+  state.students.forEach(s => {
+    const result = estimateTheta(responses[s.id], betas);
+    state.estimatedThetas[s.id] = result.theta;
+    state.mleHistories[s.id] = result.history;
+  });
+
+  document.querySelectorAll('.sim-badge').forEach(b => b.style.display = 'none');
+  renderActiveTab();
+  updatePrompt();
+}
+
+// ═══════════════════════════════════════════
+// RENDERING — WRIGHT MAP
+// ═══════════════════════════════════════════
+function renderWrightMap() {
+  const canvas = document.getElementById('wright-canvas');
+  const container = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const w = container.clientWidth;
+  const h = container.clientHeight;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const ml = 150, mr = 170, mt = 50, mb = 40;
+  const pw = w - ml - mr, ph = h - mt - mb;
+  const minL = -4, maxL = 4;
+  const yOf = v => mt + ph * (1 - (v - minL) / (maxL - minL));
+  const cx = ml + pw / 2;
+
+  // Background
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  // Zones
+  const zones = [
+    { lo: -4, hi: -1, color: 'rgba(63,185,80,0.04)', label: 'Easy' },
+    { lo: -1, hi: 1, color: 'rgba(88,166,255,0.04)', label: 'Medium' },
+    { lo: 1, hi: 4, color: 'rgba(248,81,73,0.04)', label: 'Hard' },
+  ];
+  zones.forEach(z => {
+    ctx.fillStyle = z.color;
+    ctx.fillRect(ml, yOf(z.hi), pw, yOf(z.lo) - yOf(z.hi));
+    ctx.fillStyle = '#8b949e40';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(z.label, cx, yOf((z.lo + z.hi) / 2) + 4);
+  });
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 0.5;
+  for (let l = -4; l <= 4; l += 0.5) {
+    const y = yOf(l);
+    ctx.beginPath(); ctx.moveTo(ml, y); ctx.lineTo(w - mr, y); ctx.stroke();
+  }
+
+  // Center ruler
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(cx, mt); ctx.lineTo(cx, mt + ph); ctx.stroke();
+  ctx.fillStyle = '#8b949e'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  for (let l = -4; l <= 4; l++) {
+    const y = yOf(l);
+    ctx.fillText(l.toFixed(0), cx, y + 3);
+    ctx.strokeStyle = '#30363d'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - 6, y); ctx.lineTo(cx + 6, y); ctx.stroke();
+  }
+
+  // Headers
+  ctx.font = 'bold 12px system-ui'; ctx.fillStyle = '#c9d1d9';
+  ctx.textAlign = 'center';
+  ctx.fillText('STUDENTS (\u03B8)', cx - pw / 4, mt - 25);
+  ctx.fillText('ITEMS (\u03B2)', cx + pw / 4, mt - 25);
+  ctx.fillText('Logits', cx, mt - 10);
+
+  // Students
+  state.students.forEach(s => {
+    const y = yOf(Math.max(minL, Math.min(maxL, s.theta)));
+    const x = cx - 40;
+    ctx.strokeStyle = s.color + '50'; ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x + 8, y); ctx.lineTo(cx - 8, y); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = s.color;
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+
+    ctx.fillStyle = s.color; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+    ctx.fillText(s.name + ' (' + s.theta.toFixed(1) + ')', x - 14, y + 4);
+  });
+
+  // Items — group by proximity
+  const sorted = [...state.items].sort((a, b) => a.beta - b.beta);
+  const groups = []; let curr = null;
+  sorted.forEach(item => {
+    if (!curr || Math.abs(item.beta - curr.beta) > 0.15) {
+      curr = { beta: item.beta, items: [item] };
+      groups.push(curr);
+    } else {
+      curr.items.push(item);
+      curr.beta = curr.items.reduce((s, i) => s + i.beta, 0) / curr.items.length;
+    }
+  });
+
+  groups.forEach(g => {
+    const y = yOf(Math.max(minL, Math.min(maxL, g.beta)));
+    const baseX = cx + 40;
+
+    g.items.forEach((item, i) => {
+      const x = baseX + i * 10;
+      const color = item.type === 'mcq' ? '#58a6ff' : '#3fb950';
+
+      if (i === 0) {
+        ctx.strokeStyle = color + '30'; ctx.lineWidth = 1;
+        ctx.setLineDash([2, 2]);
+        ctx.beginPath(); ctx.moveTo(cx + 8, y); ctx.lineTo(x - 5, y); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.fillStyle = color;
+      ctx.fillRect(x - 3, y - 3, 6, 6);
+    });
+
+    // Label first item in group
+    const lx = baseX + g.items.length * 10 + 4;
+    ctx.fillStyle = '#8b949e'; ctx.font = '9px system-ui'; ctx.textAlign = 'left';
+    if (g.items.length <= 3) {
+      ctx.fillText(g.items.map(i => i.label).join(', '), lx, y + 3);
+    } else {
+      ctx.fillText(g.items[0].label + '...' + g.items[g.items.length - 1].label + ' (' + g.items.length + ')', lx, y + 3);
+    }
+  });
+
+  // Legend
+  ctx.font = '11px system-ui';
+  ctx.fillStyle = '#58a6ff'; ctx.fillRect(w - mr + 20, mt, 10, 10);
+  ctx.fillText(' MCQ', w - mr + 34, mt + 9);
+  ctx.fillStyle = '#3fb950'; ctx.fillRect(w - mr + 20, mt + 18, 10, 10);
+  ctx.fillText(' Exercise', w - mr + 34, mt + 27);
+}
+
+// ═══════════════════════════════════════════
+// RENDERING — HEATMAP
+// ═══════════════════════════════════════════
+function lerpColor(c1, c2, t) {
+  return [Math.round(c1[0]+(c2[0]-c1[0])*t), Math.round(c1[1]+(c2[1]-c1[1])*t), Math.round(c1[2]+(c2[2]-c1[2])*t)];
+}
+
+function probColor(p) {
+  const r=[248,81,73], y=[210,153,34], g=[63,185,80];
+  const c = p < 0.5 ? lerpColor(r, y, p / 0.5) : lerpColor(y, g, (p - 0.5) / 0.5);
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+function renderHeatmap() {
+  // Legend
+  const legend = document.getElementById('heatmap-legend');
+  legend.innerHTML = '<div class="legend-item"><span>P(correct):</span></div>';
+  const bar = document.createElement('div');
+  bar.className = 'color-bar';
+  for (let i = 0; i <= 20; i++) {
+    const seg = document.createElement('div');
+    seg.style.flex = '1';
+    seg.style.background = probColor(i / 20);
+    bar.appendChild(seg);
+  }
+  legend.appendChild(bar);
+  const lbl = document.createElement('div');
+  lbl.className = 'legend-item';
+  lbl.style.gap = '60px';
+  lbl.innerHTML = '<span style="color:var(--red)">0%</span><span style="color:var(--yellow)">50%</span><span style="color:var(--green)">100%</span>';
+  legend.appendChild(lbl);
+
+  const canvas = document.getElementById('heatmap-canvas');
+  const container = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1;
+  const w = container.clientWidth;
+  const h = container.clientHeight - 50; // account for legend
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const ml = 100, mr = 20, mt = 50, mb = 20;
+  const nItems = state.items.length;
+  const nStudents = state.students.length;
+  if (nItems === 0 || nStudents === 0) return;
+
+  const cellW = Math.max(4, Math.min(18, (w - ml - mr) / nItems));
+  const cellH = Math.max(20, Math.min(50, (h - mt - mb) / nStudents));
+
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, w, h);
+
+  // Column headers (item labels)
+  ctx.save(); ctx.font = '9px monospace'; ctx.fillStyle = '#8b949e';
+  for (let j = 0; j < nItems; j++) {
+    if (cellW < 10 && j % 5 !== 0) continue;
+    const x = ml + j * cellW + cellW / 2;
+    ctx.save();
+    ctx.translate(x, mt - 4);
+    ctx.rotate(-Math.PI / 3);
+    ctx.textAlign = 'left';
+    ctx.fillText(state.items[j].label, 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Rows
+  state.students.forEach((s, si) => {
+    const y = mt + si * cellH;
+    // Row label
+    ctx.fillStyle = s.color; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+    ctx.fillText(s.name, ml - 8, y + cellH / 2 + 4);
+
+    // Cells
+    state.items.forEach((item, ii) => {
+      const p = raschP(s.theta, item.beta);
+      ctx.fillStyle = probColor(p);
+      ctx.fillRect(ml + ii * cellW + 0.5, y + 0.5, cellW - 1, cellH - 1);
+    });
+  });
+
+  // Separator between MCQ and exercises
+  const sepX = ml + 35 * cellW;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(sepX, mt); ctx.lineTo(sepX, mt + nStudents * cellH); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#8b949e'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('MCQ', ml + 17.5 * cellW, mt + nStudents * cellH + 14);
+  ctx.fillText('Exercises', sepX + 10 * cellW, mt + nStudents * cellH + 14);
+
+  // Hover tooltip
+  const tip = document.getElementById('heatmap-tip');
+  canvas.onmousemove = e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const col = Math.floor((mx - ml) / cellW);
+    const row = Math.floor((my - mt) / cellH);
+    if (col >= 0 && col < nItems && row >= 0 && row < nStudents) {
+      const s = state.students[row], item = state.items[col];
+      const p = raschP(s.theta, item.beta);
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX - canvas.parentElement.getBoundingClientRect().left + 12) + 'px';
+      tip.style.top = (e.clientY - canvas.parentElement.getBoundingClientRect().top - 40) + 'px';
+      tip.innerHTML = `<b>${s.name}</b> \u00D7 <b>${item.label}</b><br>\u03B8=${s.theta.toFixed(2)}, \u03B2=${item.beta.toFixed(2)}<br>P(correct) = <b>${(p*100).toFixed(1)}%</b>`;
+    } else {
+      tip.style.display = 'none';
+    }
+  };
+  canvas.onmouseleave = () => { tip.style.display = 'none'; };
+}
+
+// ═══════════════════════════════════════════
+// RENDERING — SCORING COMPARISON
+// ═══════════════════════════════════════════
+function renderScoring() {
+  const el = document.getElementById('scoring-content');
+  if (!state.responses) {
+    el.innerHTML = '<div class="no-data"><div class="icon">\u2684</div><p>Click <b>Simulate Exam</b> to generate responses and compare Raw vs Rasch scoring.</p></div>';
+    return;
+  }
+
+  const betas = state.items.map(i => i.beta);
+  const rows = state.students.map(s => {
+    const resp = state.responses[s.id];
+    const raw = rawScore(resp);
+    const ex = exerciseScore(resp);
+    const thetaEst = state.estimatedThetas[s.id];
+    const raschNorm = normalizeTheta(thetaEst);
+    return { ...s, raw, ex, rawPct: raw / 55, exPct: ex / 45, thetaEst, raschNorm };
+  });
+
+  // Sort by raw and by rasch to get ranks
+  const byRaw = [...rows].sort((a, b) => b.raw - a.raw);
+  const byRasch = [...rows].sort((a, b) => b.thetaEst - a.thetaEst);
+  rows.forEach(r => {
+    r.rankRaw = byRaw.findIndex(x => x.id === r.id) + 1;
+    r.rankRasch = byRasch.findIndex(x => x.id === r.id) + 1;
+    r.rankDiff = r.rankRaw - r.rankRasch;
+  });
+
+  let html = `<div class="info-box">
+    <b>Scoring Comparison:</b> Raw scoring counts correct answers equally. Rasch scoring weights by item difficulty &mdash;
+    getting a hard item right (high \u03B2) boosts your ability estimate (\u03B8) more than getting an easy item right.
+    <br><br>
+    <b>Formula:</b> <code>P(correct) = e^(\u03B8-\u03B2) / (1 + e^(\u03B8-\u03B2))</code> &rarr; MLE estimates \u03B8 from response pattern &rarr;
+    Normalized: <code>score = 1/(1+e^(-\u03B8))</code>
+  </div>`;
+
+  html += '<table><thead><tr>';
+  html += '<th>Student</th><th>True \u03B8</th><th>Points (55)</th><th>Raw %</th><th>Exercises (45)</th>';
+  html += '<th>Rasch \u03B8\u0302</th><th>Rasch Score</th><th>Rank (Raw)</th><th>Rank (Rasch)</th><th>\u0394</th>';
+  html += '</tr></thead><tbody>';
+
+  rows.forEach(r => {
+    const diffClass = r.rankDiff > 0 ? 'rank-up' : r.rankDiff < 0 ? 'rank-down' : 'rank-same';
+    const diffSymbol = r.rankDiff > 0 ? '\u2191' + r.rankDiff : r.rankDiff < 0 ? '\u2193' + Math.abs(r.rankDiff) : '=';
+    html += `<tr>
+      <td><span style="color:${r.color}">\u25CF</span> ${r.name}</td>
+      <td>${r.theta.toFixed(2)}</td>
+      <td>${r.raw}</td>
+      <td>${(r.rawPct * 100).toFixed(1)}%</td>
+      <td>${r.ex}</td>
+      <td>${r.thetaEst.toFixed(3)}</td>
+      <td>${(r.raschNorm * 100).toFixed(1)}%</td>
+      <td>#${r.rankRaw}</td>
+      <td>#${r.rankRasch}</td>
+      <td class="rank-diff ${diffClass}">${diffSymbol}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// RENDERING — FIT STATISTICS
+// ═══════════════════════════════════════════
+function renderFitStats() {
+  const el = document.getElementById('fit-content');
+  if (!state.responses) {
+    el.innerHTML = '<div class="no-data"><div class="icon">\u{1F50D}</div><p>Click <b>Simulate Exam</b> to compute item fit statistics.</p></div>';
+    return;
+  }
+
+  const betas = state.items.map(i => i.beta);
+  const thetas = {};
+  state.students.forEach(s => { thetas[s.id] = state.estimatedThetas[s.id]; });
+
+  let html = `<div class="info-box">
+    <b>Fit Statistics</b> measure how well each item conforms to the Rasch model.<br>
+    <b>Infit MNSQ</b> (information-weighted): sensitive to unexpected patterns on items near a person's ability.<br>
+    <b>Outfit MNSQ</b> (unweighted): sensitive to outliers (lucky guesses, careless errors).<br><br>
+    Ideal: 1.0 | Productive: 0.5\u20131.5 | Degrading: >1.5 | Distorting: >2.0
+  </div>`;
+
+  html += '<table><thead><tr><th>Item</th><th>Type</th><th>\u03B2</th><th>% Correct</th><th>Infit MNSQ</th><th>Outfit MNSQ</th><th>Status</th></tr></thead><tbody>';
+
+  state.items.forEach((item, idx) => {
+    const fit = computeItemFit(idx, state.responses, thetas, betas);
+    const pCorrect = state.students.reduce((s, st) => s + state.responses[st.id][idx], 0) / state.students.length;
+
+    let status, cls;
+    if (fit.infit < 0.5 || fit.outfit < 0.5) { status = 'Overfit'; cls = 'flag-warn'; }
+    else if (fit.infit > 2.0 || fit.outfit > 2.0) { status = 'Distorting'; cls = 'flag-bad'; }
+    else if (fit.infit > 1.5 || fit.outfit > 1.5) { status = 'Noisy'; cls = 'flag-warn'; }
+    else { status = 'Good'; cls = 'flag-good'; }
+
+    html += `<tr>
+      <td>${item.label}</td>
+      <td>${item.type === 'mcq' ? 'MCQ' : 'Ex ' + item.subpart}</td>
+      <td>${item.beta.toFixed(2)}</td>
+      <td>${(pCorrect * 100).toFixed(0)}%</td>
+      <td>${fit.infit.toFixed(3)}</td>
+      <td>${fit.outfit.toFixed(3)}</td>
+      <td class="${cls}">${status}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// RENDERING — ELO INTEGRATION
+// ═══════════════════════════════════════════
+function renderEloPreview() {
+  const el = document.getElementById('elo-content');
+  if (!state.responses) {
+    el.innerHTML = '<div class="no-data"><div class="icon">\u{1F3AF}</div><p>Click <b>Simulate Exam</b> to see ELO integration comparison.</p></div>';
+    return;
+  }
+
+  // Compute exam average (raw)
+  const rawScores = state.students.map(s => rawScore(state.responses[s.id]) / 55);
+  const rawAvg = rawScores.reduce((a, b) => a + b, 0) / rawScores.length;
+
+  // Compute exam average (rasch)
+  const raschScores = state.students.map(s => normalizeTheta(state.estimatedThetas[s.id]));
+  const raschAvg = raschScores.reduce((a, b) => a + b, 0) / raschScores.length;
+
+  let html = `<div class="info-box">
+    <b>ELO Integration:</b> Your current system uses <code>score_percent = correct / 55</code> in the ELO formula.
+    With Rasch, replace it with <code>score_percent = 1 / (1 + exp(-\u03B8\u0302))</code> where \u03B8\u0302 is the MLE ability estimate.<br><br>
+    The ELO formula remains the same: <code>\u0394 = K \u00D7 (score - expected)</code><br>
+    <code>opponent = 1200 + (exam_avg - 0.5) \u00D7 800</code><br>
+    <code>expected = 1 / (1 + 10^((opponent - elo) / 400))</code>
+  </div>`;
+
+  html += `<p style="margin-bottom:12px;color:var(--muted);font-size:13px">
+    Raw Exam Avg: <b>${(rawAvg * 100).toFixed(1)}%</b> &nbsp;|&nbsp;
+    Rasch Exam Avg: <b>${(raschAvg * 100).toFixed(1)}%</b>
+  </p>`;
+
+  state.students.forEach(s => {
+    const rawPct = rawScore(state.responses[s.id]) / 55;
+    const raschPct = normalizeTheta(state.estimatedThetas[s.id]);
+    const baseElo = 1200;
+    const exams = 3;
+
+    const eloRaw = computeElo(rawPct, rawAvg, baseElo, exams);
+    const eloRasch = computeElo(raschPct, raschAvg, baseElo, exams);
+
+    html += `<div style="margin-bottom:20px">
+      <h3 style="font-size:14px;margin-bottom:8px"><span style="color:${s.color}">\u25CF</span> ${s.name} (\u03B8=${s.theta.toFixed(1)})</h3>
+      <div class="elo-comparison">
+        <div class="elo-card current">
+          <h4>Current (Raw Scoring)</h4>
+          <div class="elo-row"><span class="label">Score</span><span class="value">${(rawPct*100).toFixed(1)}%</span></div>
+          <div class="elo-row"><span class="label">Opponent Rating</span><span class="value">${eloRaw.opp.toFixed(0)}</span></div>
+          <div class="elo-row"><span class="label">Expected</span><span class="value">${eloRaw.expected.toFixed(3)}</span></div>
+          <div class="elo-row"><span class="label">K-factor</span><span class="value">${eloRaw.k}</span></div>
+          <div class="elo-row"><span class="label">ELO \u0394</span><span class="value" style="color:${eloRaw.delta>=0?'var(--green)':'var(--red)'}"><b>${eloRaw.delta>=0?'+':''}${eloRaw.delta}</b></span></div>
+          <div class="elo-row"><span class="label">New ELO</span><span class="value"><b>${eloRaw.newElo}</b></span></div>
+        </div>
+        <div class="elo-card rasch">
+          <h4>Proposed (Rasch Scoring)</h4>
+          <div class="elo-row"><span class="label">Score</span><span class="value">${(raschPct*100).toFixed(1)}%</span></div>
+          <div class="elo-row"><span class="label">Opponent Rating</span><span class="value">${eloRasch.opp.toFixed(0)}</span></div>
+          <div class="elo-row"><span class="label">Expected</span><span class="value">${eloRasch.expected.toFixed(3)}</span></div>
+          <div class="elo-row"><span class="label">K-factor</span><span class="value">${eloRasch.k}</span></div>
+          <div class="elo-row"><span class="label">ELO \u0394</span><span class="value" style="color:${eloRasch.delta>=0?'var(--green)':'var(--red)'}"><b>${eloRasch.delta>=0?'+':''}${eloRasch.delta}</b></span></div>
+          <div class="elo-row"><span class="label">New ELO</span><span class="value"><b>${eloRasch.newElo}</b></span></div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px">
+        Difference: ELO \u0394 shift of <b style="color:${Math.abs(eloRasch.delta-eloRaw.delta)>3?'var(--yellow)':'var(--muted)'}">${eloRasch.delta - eloRaw.delta >= 0 ? '+' : ''}${eloRasch.delta - eloRaw.delta}</b> points with Rasch
+      </p>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// RENDERING — MLE DEMO
+// ═══════════════════════════════════════════
+function renderMleDemo() {
+  const el = document.getElementById('mle-content');
+  if (!state.responses) {
+    el.innerHTML = '<div class="no-data"><div class="icon">\u{1F4CA}</div><p>Click <b>Simulate Exam</b> to run MLE estimation and see convergence.</p></div>';
+    return;
+  }
+
+  let html = `<div class="info-box">
+    <b>Newton-Raphson Maximum Likelihood Estimation:</b><br>
+    Starting from initial estimate <code>\u03B8\u2080 = ln(r / (N-r))</code>, iterate:<br>
+    <code>\u03B8\u2099\u208A\u2081 = \u03B8\u2099 + [r - \u03A3P\u1D62(\u03B8\u2099)] / [\u03A3P\u1D62(\u03B8\u2099)(1-P\u1D62(\u03B8\u2099))]</code><br>
+    until \u0394\u03B8 < 0.001 (convergence)
+  </div>`;
+
+  html += '<label style="font-size:13px;color:var(--muted)">Select student: </label>';
+  html += '<select class="mle-select" id="mle-student" onchange="renderMleTable()">';
+  state.students.forEach(s => {
+    html += `<option value="${s.id}">${s.name} (\u03B8\u209C\u1D63\u1D64\u1D49 = ${s.theta.toFixed(2)})</option>`;
+  });
+  html += '</select>';
+  html += '<div id="mle-table"></div>';
+
+  el.innerHTML = html;
+  renderMleTable();
+}
+
+function renderMleTable() {
+  const sel = document.getElementById('mle-student');
+  if (!sel) return;
+  const sid = +sel.value;
+  const s = state.students.find(x => x.id === sid);
+  if (!s) return;
+
+  const history = state.mleHistories[sid];
+  const resp = state.responses[sid];
+  const raw = rawScore(resp);
+
+  let html = `<p style="margin:12px 0;font-size:13px">
+    <span style="color:${s.color}">\u25CF</span> <b>${s.name}</b> &mdash;
+    True \u03B8: <b>${s.theta.toFixed(2)}</b> |
+    Raw score: <b>${raw}/55</b> |
+    Final estimate: <b style="color:var(--accent)">\u03B8\u0302 = ${state.estimatedThetas[sid].toFixed(4)}</b> |
+    Error: <b>${Math.abs(state.estimatedThetas[sid] - s.theta).toFixed(4)}</b>
+  </p>`;
+
+  html += '<table><thead><tr><th>Iteration</th><th>\u03B8 Estimate</th><th>|Residual|</th><th>\u0394\u03B8</th><th>Status</th></tr></thead><tbody>';
+  history.forEach((h, i) => {
+    const isLast = i === history.length - 1 && i > 0;
+    html += `<tr>
+      <td>${h.iter}</td>
+      <td style="font-family:monospace">${typeof h.theta === 'number' ? h.theta.toFixed(4) : h.theta}</td>
+      <td style="font-family:monospace">${h.residual === '-' ? '-' : (typeof h.residual === 'number' ? h.residual.toFixed(4) : h.residual)}</td>
+      <td style="font-family:monospace">${h.delta === '-' ? '-' : (typeof h.delta === 'number' ? h.delta.toFixed(4) : h.delta)}</td>
+      <td>${i === 0 ? 'Initial' : (isLast ? '<span class="iter-converged">Converged \u2714</span>' : 'Iterating...')}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+
+  // Mini convergence chart (text-based)
+  html += '<div style="margin-top:16px;padding:12px;background:rgba(0,0,0,0.3);border-radius:8px">';
+  html += '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Convergence Plot (\u03B8 per iteration):</div>';
+  const minT = Math.min(...history.map(h => typeof h.theta === 'number' ? h.theta : parseFloat(h.theta)));
+  const maxT = Math.max(...history.map(h => typeof h.theta === 'number' ? h.theta : parseFloat(h.theta)));
+  const range = maxT - minT || 1;
+  history.forEach(h => {
+    const t = typeof h.theta === 'number' ? h.theta : parseFloat(h.theta);
+    const pos = Math.round(((t - minT) / range) * 40);
+    const bar = '\u2500'.repeat(pos) + '\u25CF' + '\u2500'.repeat(40 - pos);
+    html += `<div style="font-family:monospace;font-size:10px;color:var(--accent)">${String(h.iter).padStart(2)} |${bar}| ${t.toFixed(3)}</div>`;
+  });
+  html += `<div style="font-family:monospace;font-size:10px;color:var(--green);margin-top:4px">   True \u03B8 = ${s.theta.toFixed(3)}</div>`;
+  html += '</div>';
+
+  document.getElementById('mle-table').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// UI CONTROLS
+// ═══════════════════════════════════════════
+function initStudents() {
+  state.students = DEFAULT_STUDENTS.map((s, i) => ({
+    id: state.nextId++,
+    name: s.name,
+    theta: s.theta,
+    color: STUDENT_COLORS[i % STUDENT_COLORS.length],
+  }));
+}
+
+function renderStudentList() {
+  const list = document.getElementById('student-list');
+  list.innerHTML = '';
+  state.students.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'student-card';
+    card.innerHTML = `
+      <div class="dot" style="background:${s.color}"></div>
+      <span class="name">${s.name}</span>
+      <input type="range" min="-4" max="4" step="0.1" value="${s.theta}"
+        oninput="updateStudent(${s.id}, this.value)">
+      <span class="theta-val" id="sv-${s.id}">${s.theta.toFixed(1)}</span>
+      <button class="remove-btn" onclick="removeStudent(${s.id})">\u00D7</button>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function updateStudent(id, val) {
+  const s = state.students.find(x => x.id === id);
+  if (s) {
+    s.theta = parseFloat(val);
+    document.getElementById('sv-' + id).textContent = s.theta.toFixed(1);
+    state.responses = null;
+    state.estimatedThetas = null;
+    document.querySelectorAll('.sim-badge').forEach(b => b.style.display = 'inline-block');
+    renderActiveTab();
+    updatePrompt();
+  }
+}
+
+function addStudent() {
+  const id = state.nextId++;
+  const idx = state.students.length;
+  state.students.push({
+    id, name: 'Student ' + id, theta: 0,
+    color: STUDENT_COLORS[idx % STUDENT_COLORS.length],
+  });
+  state.responses = null;
+  document.querySelectorAll('.sim-badge').forEach(b => b.style.display = 'inline-block');
+  renderStudentList();
+  renderActiveTab();
+  updatePrompt();
+}
+
+function removeStudent(id) {
+  state.students = state.students.filter(s => s.id !== id);
+  if (state.responses) delete state.responses[id];
+  renderStudentList();
+  renderActiveTab();
+  updatePrompt();
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  state.preset = name;
+  state.mcqMean = p.mcqMean; state.mcqSpread = p.mcqSpread;
+  state.exMean = p.exMean; state.exSpread = p.exSpread;
+
+  document.getElementById('mcq-mean').value = p.mcqMean;
+  document.getElementById('mcq-spread').value = p.mcqSpread;
+  document.getElementById('ex-mean').value = p.exMean;
+  document.getElementById('ex-spread').value = p.exSpread;
+
+  syncSliderVals();
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+
+  state.responses = null;
+  state.estimatedThetas = null;
+  document.querySelectorAll('.sim-badge').forEach(b => b.style.display = 'inline-block');
+  generateItems();
+  renderActiveTab();
+  updatePrompt();
+}
+
+function onSliderChange() {
+  state.mcqMean = parseFloat(document.getElementById('mcq-mean').value);
+  state.mcqSpread = parseFloat(document.getElementById('mcq-spread').value);
+  state.exMean = parseFloat(document.getElementById('ex-mean').value);
+  state.exSpread = parseFloat(document.getElementById('ex-spread').value);
+  state.noise = parseFloat(document.getElementById('noise').value);
+  syncSliderVals();
+
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  state.preset = 'custom';
+
+  state.responses = null;
+  state.estimatedThetas = null;
+  document.querySelectorAll('.sim-badge').forEach(b => b.style.display = 'inline-block');
+  generateItems();
+  renderActiveTab();
+  updatePrompt();
+}
+
+function syncSliderVals() {
+  document.getElementById('mcq-mean-v').textContent = state.mcqMean.toFixed(1);
+  document.getElementById('mcq-spread-v').textContent = state.mcqSpread.toFixed(1);
+  document.getElementById('ex-mean-v').textContent = state.exMean.toFixed(1);
+  document.getElementById('ex-spread-v').textContent = state.exSpread.toFixed(1);
+  document.getElementById('noise-v').textContent = state.noise.toFixed(2);
+}
+
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
+  renderActiveTab();
+}
+
+function renderActiveTab() {
+  switch (state.activeTab) {
+    case 'wright': renderWrightMap(); break;
+    case 'heatmap': renderHeatmap(); break;
+    case 'scoring': renderScoring(); break;
+    case 'fit': renderFitStats(); break;
+    case 'elo': renderEloPreview(); break;
+    case 'mle': renderMleDemo(); break;
+  }
+}
+
+// ═══════════════════════════════════════════
+// PROMPT & EXPORT
+// ═══════════════════════════════════════════
+function updatePrompt() {
+  const items = state.items.map(i => ({
+    question: i.num, type: i.type, subpart: i.subpart, beta: +i.beta.toFixed(3), label: i.label
+  }));
+
+  const prompt = `Implement Rasch scoring in Django backend:
+
+1. Store item difficulties (\u03B2): ${state.items.length} items, MCQ mean=${state.mcqMean.toFixed(1)}, Exercise mean=${state.exMean.toFixed(1)}
+2. After grading, estimate \u03B8 via Newton-Raphson MLE (max 50 iter, tol=0.001)
+3. Normalize: score = 1/(1+exp(-\u03B8))
+4. Replace score_percent = correct/55 with normalized Rasch score in elo.py
+5. Track infit/outfit MNSQ per item for quality monitoring
+6. ${state.students.length} student ability levels configured (${state.students.map(s=>s.theta.toFixed(1)).join(', ')})`;
+
+  document.getElementById('prompt-text').textContent = prompt;
+}
+
+function exportConfig() {
+  const config = {
+    model: 'rasch_1pl',
+    exam_structure: { mcq_count: 35, exercise_count: 10, exercise_parts: ['a', 'b'], total_points: 55, total_exercises: 45 },
+    items: state.items.map(i => ({ question: i.num, type: i.type, subpart: i.subpart, beta: +i.beta.toFixed(4), label: i.label })),
+    distribution: { mcq: { mean: state.mcqMean, spread: state.mcqSpread }, exercise: { mean: state.exMean, spread: state.exSpread }, noise: state.noise },
+    estimation: { method: 'newton_raphson_mle', max_iterations: 50, tolerance: 0.001, theta_bounds: [-5, 5] },
+    normalization: { method: 'logistic', formula: '1 / (1 + exp(-theta))' },
+    elo_integration: { score_formula: '1 / (1 + exp(-theta_hat))', replaces: 'correct_count / 55', k_factor_new: 40, k_factor_experienced: 20, threshold_exams: 5 },
+    fit_thresholds: { productive: [0.5, 1.5], degrading: [0.0, 2.0] },
+  };
+
+  const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'rasch-config.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function copyPrompt() {
+  const text = document.getElementById('prompt-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+  });
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+function init() {
+  initNoiseSeeds();
+  initStudents();
+
+  // Preset buttons
+  const presetContainer = document.getElementById('preset-btns');
+  Object.keys(PRESETS).forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn' + (name === 'medium' ? ' active' : '');
+    btn.dataset.preset = name;
+    btn.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+    btn.onclick = () => applyPreset(name);
+    presetContainer.appendChild(btn);
+  });
+
+  // Set initial slider values
+  document.getElementById('mcq-mean').value = state.mcqMean;
+  document.getElementById('mcq-spread').value = state.mcqSpread;
+  document.getElementById('ex-mean').value = state.exMean;
+  document.getElementById('ex-spread').value = state.exSpread;
+  syncSliderVals();
+
+  generateItems();
+  renderStudentList();
+  renderActiveTab();
+  updatePrompt();
+
+  window.addEventListener('resize', () => renderActiveTab());
+}
+
+init();
+</script>
+</body>
+</html>

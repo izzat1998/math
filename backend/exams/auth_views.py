@@ -4,6 +4,8 @@ import json
 from urllib.parse import parse_qs
 
 from django.conf import settings
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny
@@ -115,3 +117,48 @@ def auth_invite_code(request):
         **_get_tokens_for_student(student),
         'exam_id': str(invite.exam.id),
     })
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def auth_google(request):
+    credential = request.data.get('credential')
+    if not credential:
+        return Response(
+            {'error': 'Google credential talab qilinadi'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        id_info = id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError as e:
+        print(f"[Google Auth Error] {e}")
+        return Response(
+            {'error': 'Google token yaroqsiz'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    google_id = id_info['sub']
+    email = id_info.get('email', '')
+    name = id_info.get('name', '')
+
+    student = Student.objects.filter(google_id=google_id).first()
+    if not student and email:
+        student = Student.objects.filter(email=email).first()
+        if student:
+            student.google_id = google_id
+            student.save(update_fields=['google_id'])
+
+    if not student:
+        student = Student.objects.create(
+            full_name=name,
+            email=email or None,
+            google_id=google_id,
+        )
+
+    return Response(_get_tokens_for_student(student))

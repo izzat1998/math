@@ -1,29 +1,28 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { GoogleLogin } from '@react-oauth/google'
 import { useAuth } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LoginPage() {
-  const [code, setCode] = useState('')
-  const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { loginWithInviteCode, logout } = useAuth()
+  const { loginWithGoogle, logout } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
     logout()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
+    if (!credentialResponse.credential) return
     setError('')
     setLoading(true)
     try {
-      const data = await loginWithInviteCode(code, fullName)
-      navigate(`/exam/${data.exam_id}`)
+      await loginWithGoogle(credentialResponse.credential)
+      navigate('/')
     } catch {
-      setError("Taklif kodi noto'g'ri yoki ishlatilgan. Iltimos, tekshirib qaytadan urinib ko'ring.")
+      setError("Google orqali kirishda xatolik yuz berdi. Qaytadan urinib ko'ring.")
     } finally {
       setLoading(false)
     }
@@ -75,7 +74,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Form panel */}
+      {/* Sign-in panel */}
       <div className="flex-1 flex items-center justify-center px-6 bg-white lg:bg-slate-50/50">
         <div className="w-full max-w-sm">
           {/* Mobile branding */}
@@ -90,9 +89,9 @@ export default function LoginPage() {
           </div>
 
           <div className="animate-slide-up">
-            <div className="mb-8">
+            <div className="mb-8 text-center">
               <h2 className="text-xl font-bold text-slate-900 tracking-tight">Kirish</h2>
-              <p className="text-[13px] text-slate-400 mt-1.5 font-medium">Taklif kodingiz va ismingizni kiriting</p>
+              <p className="text-[13px] text-slate-400 mt-1.5 font-medium">Google hisobingiz orqali kiring</p>
             </div>
 
             {error && (
@@ -104,59 +103,34 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[13px] font-semibold text-slate-600 mb-2">To'liq ism</label>
-                <input
-                  type="text"
-                  placeholder="Ism Familiya"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="!h-[54px] !rounded-2xl !border-[1.5px]"
-                  required
+            {loading ? (
+              <div className="flex justify-center py-4">
+                <LoadingSpinner size="sm" />
+              </div>
+            ) : (
+              <div className="flex justify-center">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={() => setError("Google orqali kirishda xatolik yuz berdi.")}
+                  theme="outline"
+                  size="large"
+                  text="signin_with"
+                  shape="rectangular"
+                  width="320"
                 />
               </div>
-
-              <div>
-                <label className="block text-[13px] font-semibold text-slate-600 mb-2">Taklif kodi</label>
-                <input
-                  type="text"
-                  placeholder="XXXX-XXXX"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  className="!h-[54px] !rounded-2xl !border-[1.5px] !font-mono !tracking-[0.2em] !text-center !text-lg !font-bold !text-primary-500"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2.5 text-white h-[54px] rounded-2xl font-bold text-[15px] disabled:opacity-50 transition-all active:scale-[0.97] shadow-lg shadow-primary-500/20"
-                style={{ background: 'linear-gradient(135deg, #1e3a5f, #0f2035)' }}
-              >
-                {loading ? (
-                  <>
-                    <LoadingSpinner size="sm" />
-                    Kirilmoqda...
-                  </>
-                ) : (
-                  <>
-                    Boshlash
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                    </svg>
-                  </>
-                )}
-              </button>
-            </form>
+            )}
           </div>
 
-          <p className="text-center mt-6 text-[13px] text-slate-400 font-medium">
+          <div className="flex items-center justify-center gap-4 mt-8 text-[13px] text-slate-400 font-medium">
+            <Link to="/leaderboard" className="hover:text-accent-600 transition-colors">
+              Reyting jadvali
+            </Link>
+            <span className="text-slate-200">|</span>
             <Link to="/admin" className="hover:text-accent-600 transition-colors">
               Admin panel
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>

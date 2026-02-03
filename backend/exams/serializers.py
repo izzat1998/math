@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import MockExam, CorrectAnswer, InviteCode
+from .models import MockExam, CorrectAnswer, InviteCode, Question, PracticeSession
 
 
 class MockExamSerializer(serializers.ModelSerializer):
@@ -35,3 +35,23 @@ class InviteCodeSerializer(serializers.ModelSerializer):
 
 class GenerateInviteCodesSerializer(serializers.Serializer):
     count = serializers.IntegerField(min_value=1, max_value=500)
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ['id', 'text', 'image', 'topic', 'difficulty', 'answer_type', 'choices']
+
+
+class QuestionResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = ['id', 'text', 'image', 'topic', 'difficulty', 'answer_type', 'choices', 'correct_answer', 'explanation']
+
+
+class PracticeSessionSerializer(serializers.ModelSerializer):
+    questions = QuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = PracticeSession
+        fields = ['id', 'mode', 'questions', 'started_at', 'duration', 'answers', 'status']

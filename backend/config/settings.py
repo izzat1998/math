@@ -109,6 +109,7 @@ REST_FRAMEWORK = {
 }
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 
 _redis_password = os.environ.get('REDIS_PASSWORD', '')
 _redis_auth = f':{_redis_password}@' if _redis_password else ''

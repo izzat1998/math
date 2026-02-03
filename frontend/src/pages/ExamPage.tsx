@@ -2,13 +2,16 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 import { useTelegram } from '../hooks/useTelegram'
 import { useMobileDetect } from '../hooks/useMobileDetect'
 import type { Exam, SessionStart } from '../api/types'
 import PdfViewer from '../components/PdfViewer'
+import type { PageInfo } from '../components/PdfViewer'
 import AnswerSidebar from '../components/AnswerSidebar'
 import AnswerBar from '../components/AnswerBar'
 import Timer from '../components/Timer'
+import EloBadge from '../components/EloBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 type ExamStatus = 'loading' | 'not_open' | 'closed' | 'active'
@@ -25,9 +28,12 @@ function getExamStatus(exam: Exam | null): ExamStatus {
 
 const TOTAL_QUESTIONS = 45
 
+const IS_DEV = import.meta.env.DEV
+
 export default function ExamPage() {
   const { examId } = useParams<{ examId: string }>()
   const { fullName } = useAuth()
+  const { toast } = useToast()
   const navigate = useNavigate()
   const { isMobile } = useMobileDetect()
   const {
@@ -44,11 +50,18 @@ export default function ExamPage() {
     setBackgroundColor,
   } = useTelegram()
 
+  const hasToken = !!localStorage.getItem('access_token')
+  const isMock = IS_DEV && !hasToken
+
   const [exam, setExam] = useState<Exam | null>(null)
   const [session, setSession] = useState<SessionStart | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(1)
+  const [activeQuestion, setActiveQuestion] = useState<number | undefined>()
+  const [pageInfo, setPageInfo] = useState<PageInfo | null>(null)
+  const [myElo, setMyElo] = useState<number | null>(isMock ? 1200 : null)
 
   useEffect(() => {
     if (isTelegram) {
@@ -58,11 +71,42 @@ export default function ExamPage() {
   }, [isTelegram, setHeaderColor, setBackgroundColor])
 
   useEffect(() => {
-    api.get<Exam>(`/exams/${examId}/`).then(({ data }) => setExam(data))
-  }, [examId])
+    if (!hasToken) return
+    api.get<{ current_elo: number }>('/me/elo-history/').then(({ data }) => setMyElo(data.current_elo)).catch(() => {})
+  }, [hasToken])
+
+  useEffect(() => {
+    api.get<Exam>(`/exams/${examId}/`).then(({ data }) => setExam(data)).catch(() => {
+      if (isMock) {
+        // In dev mode without auth, use mock exam data
+        setExam({
+          id: examId || 'dev-mock',
+          title: 'Dev Mock Exam',
+          duration: 120,
+          open_at: new Date(Date.now() - 3600000).toISOString(),
+          close_at: new Date(Date.now() + 3600000).toISOString(),
+          is_open: true,
+        } as Exam)
+      } else {
+        setFetchError(true)
+        toast('Imtihon yuklanmadi', 'error')
+      }
+    })
+  }, [examId, toast, isMock])
 
   useEffect(() => {
     if (!exam) return
+
+    // In dev mode without auth, create a mock session
+    if (isMock) {
+      setSession({
+        session_id: 'dev-session',
+        started_at: new Date().toISOString(),
+        duration: exam.duration,
+      })
+      return
+    }
+
     const status = getExamStatus(exam)
     if (status !== 'active') return
 
@@ -71,9 +115,12 @@ export default function ExamPage() {
     }).catch((err) => {
       if (err.response?.data?.error === 'Already submitted') {
         navigate(`/results/${examId}`)
+      } else {
+        setFetchError(true)
+        toast('Sessiyani boshlashda xatolik', 'error')
       }
     })
-  }, [examId, exam, navigate])
+  }, [examId, exam, navigate, toast, isMock])
 
   useEffect(() => {
     if (!session || submitted) return
@@ -88,13 +135,14 @@ export default function ExamPage() {
       const key = subPart ? `${questionNumber}_${subPart}` : `${questionNumber}`
       setAnswers((prev) => ({ ...prev, [key]: answer }))
       hapticImpact('light')
+      if (isMock) return
       api.post(`/sessions/${session.session_id}/answers/`, {
         question_number: questionNumber,
         sub_part: subPart,
         answer,
-      })
+      }).catch(() => toast('Javob saqlanmadi', 'error'))
     },
-    [session, hapticImpact]
+    [session, hapticImpact, toast, isMock]
   )
 
   const handleSubmit = useCallback(async () => {
@@ -114,13 +162,18 @@ export default function ExamPage() {
       if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) return
     }
 
-    setMainButtonLoading(true)
-    await api.post(`/sessions/${session.session_id}/submit/`)
-    setSubmitted(true)
-    hapticNotification('success')
-    hideMainButton()
-    navigate(`/results/${session.session_id}`)
-  }, [session, submitted, isTelegram, showPopup, setMainButtonLoading, hapticNotification, hideMainButton, navigate])
+    try {
+      setMainButtonLoading(true)
+      await api.post(`/sessions/${session.session_id}/submit/`)
+      setSubmitted(true)
+      hapticNotification('success')
+      hideMainButton()
+      navigate(`/results/${session.session_id}`)
+    } catch {
+      setMainButtonLoading(false)
+      toast("Topshirishda xatolik yuz berdi. Qaytadan urinib ko'ring.", 'error')
+    }
+  }, [session, submitted, isTelegram, showPopup, setMainButtonLoading, hapticNotification, hideMainButton, navigate, toast])
 
   useEffect(() => {
     if (isTelegram && session && !submitted) {
@@ -141,9 +194,12 @@ export default function ExamPage() {
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
       setSubmitted(true)
       hapticNotification('warning')
+      toast('Vaqt tugadi! Javoblar topshirildi.', 'success')
       navigate(`/results/${session.session_id}`)
+    }).catch(() => {
+      toast('Vaqt tugadi, lekin topshirishda xatolik. Sahifani yangilang.', 'error')
     })
-  }, [session, submitted, navigate, hapticNotification])
+  }, [session, submitted, navigate, hapticNotification, toast])
 
   const handleNavigate = useCallback((q: number) => {
     setCurrentQuestion(q)
@@ -151,6 +207,28 @@ export default function ExamPage() {
   }, [hapticImpact])
 
   const examStatus = getExamStatus(exam)
+
+  if (fetchError && !exam) {
+    return (
+      <div className="flex items-center justify-center h-screen-dvh bg-slate-50 bg-noise">
+        <div className="text-center max-w-sm mx-auto p-8 animate-slide-up">
+          <div className="w-16 h-16 rounded-2xl bg-danger-50 border border-danger-100 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-7 h-7 text-danger-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-2 tracking-tight">Xatolik yuz berdi</h2>
+          <p className="text-sm text-slate-400 font-medium mb-5">Imtihon yuklanmadi. Internetga ulanishni tekshiring.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white rounded-xl font-semibold text-sm hover:bg-primary-600 transition-colors active:scale-95"
+          >
+            Qayta yuklash
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (examStatus === 'loading' || !exam) {
     return <LoadingSpinner fullScreen label="Imtihon yuklanmoqda..." />
@@ -229,7 +307,7 @@ export default function ExamPage() {
 
         {/* PDF viewer */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <PdfViewer url={`/exams/${examId}/pdf/`} />
+          <PdfViewer url={`/exams/${examId}/pdf/`} currentQuestion={currentQuestion} />
         </div>
 
         {/* Answer bar */}
@@ -271,6 +349,7 @@ export default function ExamPage() {
         />
 
         <div className="flex items-center gap-2.5">
+          {myElo !== null && <EloBadge elo={myElo} />}
           <span className="text-sm text-slate-400 font-medium">{fullName}</span>
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
             <span className="text-xs font-bold text-white">
@@ -282,7 +361,7 @@ export default function ExamPage() {
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-[65%] h-full">
-          <PdfViewer url={`/exams/${examId}/pdf/`} />
+          <PdfViewer url={`/exams/${examId}/pdf/`} currentQuestion={activeQuestion} onPageInfo={setPageInfo} />
         </div>
         <div className="w-[35%] border-l border-slate-200/80 bg-white flex flex-col">
           <AnswerSidebar
@@ -290,6 +369,8 @@ export default function ExamPage() {
             onAnswer={saveAnswer}
             onSubmit={handleSubmit}
             disabled={submitted}
+            onQuestionFocus={setActiveQuestion}
+            pageInfo={pageInfo}
           />
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import type { ExamResults, AnswerBreakdown } from '../api/types'
+import EloChangeCard from '../components/EloChangeCard'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTelegram } from '../hooks/useTelegram'
 import { useMobileDetect } from '../hooks/useMobileDetect'
@@ -201,6 +202,8 @@ export default function ResultsPage() {
           </span>
         </div>
 
+        {results.elo && <EloChangeCard elo={results.elo} />}
+
         {results.is_auto_submitted && (
           <div className="mb-4 flex items-center gap-2.5 p-3 bg-warning-50 border border-warning-200/50 rounded-2xl">
             <span className="text-warning-500 text-sm">⚡</span>
@@ -273,6 +276,17 @@ export default function ResultsPage() {
             })}
           </div>
         </div>
+
+        {/* Leaderboard link */}
+        <Link
+          to="/leaderboard"
+          className="w-full h-[52px] rounded-2xl bg-white border border-slate-200/60 shadow-sm text-slate-700 font-bold text-[15px] flex items-center justify-center gap-2.5 transition-all active:scale-[0.97] mb-3"
+        >
+          <svg className="w-5 h-5 text-accent-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+          Reyting jadvali
+        </Link>
 
         {/* Share button */}
         <button

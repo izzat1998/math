@@ -8,13 +8,21 @@ import { useMobileDetect } from '../hooks/useMobileDetect'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
+export interface PageInfo {
+  page: number
+  totalPages: number
+  questions: number[]
+}
+
 interface PdfViewerProps {
   url: string
+  currentQuestion?: number
+  onPageInfo?: (info: PageInfo) => void
 }
 
 type SlideDir = 'left' | 'right' | null
 
-export default function PdfViewer({ url }: PdfViewerProps) {
+export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewerProps) {
   const { isMobile } = useMobileDetect()
   const [numPages, setNumPages] = useState<number>(0)
   const [pageNumber, setPageNumber] = useState(1)
@@ -23,6 +31,9 @@ export default function PdfViewer({ url }: PdfViewerProps) {
   const [containerWidth, setContainerWidth] = useState(0)
   const blobRef = useRef<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfDocRef = useRef<any>(null)
+  const questionPageMap = useRef<Map<number, number>>(new Map())
 
   // Pinch-to-zoom state
   const [scale, setScale] = useState(1)
@@ -39,11 +50,22 @@ export default function PdfViewer({ url }: PdfViewerProps) {
   const [showArrows, setShowArrows] = useState(true)
   const arrowTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  // Zoom hint — show once per session
+  const [showHint, setShowHint] = useState(() => !sessionStorage.getItem('pdf_hint_shown'))
+
   const goToPage = useCallback((page: number) => {
     if (page < 1 || page > numPages || page === pageNumber) return
     setSlideDir(page > pageNumber ? 'left' : 'right')
     setPageNumber(page)
   }, [numPages, pageNumber])
+
+  // Auto-hide zoom hint after 3 seconds
+  useEffect(() => {
+    if (!showHint) return
+    sessionStorage.setItem('pdf_hint_shown', '1')
+    const t = setTimeout(() => setShowHint(false), 3000)
+    return () => clearTimeout(t)
+  }, [showHint])
 
   // Auto-hide arrows after 3 seconds
   useEffect(() => {
@@ -59,11 +81,15 @@ export default function PdfViewer({ url }: PdfViewerProps) {
     return () => clearTimeout(t)
   }, [slideDir])
 
+  const [pdfError, setPdfError] = useState(false)
+
   useEffect(() => {
     api.get(url, { responseType: 'blob' }).then(({ data }) => {
       const blobUrl = URL.createObjectURL(data)
       blobRef.current = blobUrl
       setPdfBlob(blobUrl)
+    }).catch(() => {
+      setPdfError(true)
     })
     return () => {
       if (blobRef.current) {
@@ -90,6 +116,69 @@ export default function PdfViewer({ url }: PdfViewerProps) {
     setTranslate({ x: 0, y: 0 })
     setSwipeOffset(0)
   }, [pageNumber])
+
+  // ── Text extraction: build question → page mapping ──
+  const pageToQuestions = useRef<Map<number, number[]>>(new Map())
+
+  useEffect(() => {
+    const doc = pdfDocRef.current
+    if (!doc) return
+    let cancelled = false
+
+    async function extractMapping() {
+      const map = new Map<number, number>()
+      const reverseMap = new Map<number, number[]>()
+      for (let p = 1; p <= doc.numPages; p++) {
+        const page = await doc.getPage(p)
+        const content = await page.getTextContent()
+        const text = content.items.map((item: { str?: string }) => item.str ?? '').join(' ')
+        const regex = /(?:^|\s)(\d{1,2})[.)]\s/g
+        let match
+        while ((match = regex.exec(text)) !== null) {
+          const qNum = parseInt(match[1], 10)
+          if (qNum >= 1 && qNum <= 99 && !map.has(qNum)) {
+            map.set(qNum, p)
+            const list = reverseMap.get(p) || []
+            list.push(qNum)
+            reverseMap.set(p, list)
+          }
+        }
+      }
+      if (!cancelled) {
+        questionPageMap.current = map
+        pageToQuestions.current = reverseMap
+        // Report initial page info
+        onPageInfo?.({
+          page: pageNumber,
+          totalPages: doc.numPages,
+          questions: reverseMap.get(pageNumber)?.sort((a, b) => a - b) || [],
+        })
+      }
+    }
+
+    extractMapping()
+    return () => { cancelled = true }
+  }, [numPages]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Report page info when page changes
+  useEffect(() => {
+    if (numPages === 0) return
+    onPageInfo?.({
+      page: pageNumber,
+      totalPages: numPages,
+      questions: pageToQuestions.current.get(pageNumber)?.sort((a, b) => a - b) || [],
+    })
+  }, [pageNumber, numPages]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-navigate to current question's page ──
+  useEffect(() => {
+    if (currentQuestion == null) return
+    const targetPage = questionPageMap.current.get(currentQuestion)
+    if (!targetPage) return
+    if (targetPage === pageNumber) return
+    if (scale > 1) return
+    goToPage(targetPage)
+  }, [currentQuestion, pageNumber, scale, goToPage])
 
   // ── Pinch-to-zoom handlers (mobile) ──
   function getTouchDist(touches: React.TouchList) {
@@ -203,6 +292,17 @@ export default function PdfViewer({ url }: PdfViewerProps) {
   }
 
   if (!pdfBlob) {
+    if (pdfError) {
+      return (
+        <div className="flex items-center justify-center h-full bg-slate-100">
+          <div className="text-center p-6">
+            <div className="text-4xl mb-3">📄</div>
+            <p className="text-sm text-slate-500 font-medium">PDF yuklanmadi</p>
+            <p className="text-xs text-slate-400 mt-1">Backend ishlamayapti yoki PDF fayl topilmadi</p>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="flex items-center justify-center h-full bg-slate-50">
         <LoadingSpinner label="PDF yuklanmoqda..." />
@@ -227,32 +327,6 @@ export default function PdfViewer({ url }: PdfViewerProps) {
         <span className="text-sm text-slate-600 font-semibold tabular-nums tracking-tight">
           {pageNumber} / {numPages}
         </span>
-
-        {/* Desktop: prev/next in toolbar */}
-        {!isMobile && (
-          <div className="absolute left-3 flex items-center gap-0.5">
-            <button
-              onClick={() => goToPage(pageNumber - 1)}
-              disabled={pageNumber <= 1}
-              className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors active:scale-95"
-              aria-label="Oldingi sahifa"
-            >
-              <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-              </svg>
-            </button>
-            <button
-              onClick={() => goToPage(pageNumber + 1)}
-              disabled={pageNumber >= numPages}
-              className="p-2 rounded-lg hover:bg-slate-100 disabled:opacity-30 transition-colors active:scale-95"
-              aria-label="Keyingi sahifa"
-            >
-              <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-              </svg>
-            </button>
-          </div>
-        )}
 
         {/* Desktop: zoom controls */}
         {!isMobile && (
@@ -295,8 +369,8 @@ export default function PdfViewer({ url }: PdfViewerProps) {
       {/* PDF content */}
       <div
         ref={containerRef}
-        className={`flex-1 bg-slate-100 overflow-hidden relative ${
-          !isMobile ? 'overflow-auto flex justify-center p-4' : ''
+        className={`flex-1 bg-slate-100 relative ${
+          !isMobile ? 'overflow-auto flex justify-center p-4' : 'overflow-hidden'
         }`}
         onTouchStart={isMobile ? handleTouchStart : undefined}
         onTouchMove={isMobile ? handleTouchMove : undefined}
@@ -319,7 +393,7 @@ export default function PdfViewer({ url }: PdfViewerProps) {
         >
           <Document
             file={pdfBlob}
-            onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+            onLoadSuccess={(pdf) => { pdfDocRef.current = pdf; setNumPages(pdf.numPages) }}
             loading={<LoadingSpinner label="Yuklanmoqda..." />}
           >
             <Page
@@ -330,44 +404,49 @@ export default function PdfViewer({ url }: PdfViewerProps) {
           </Document>
         </div>
 
-        {/* ── Mobile: Centered overlay arrows ── */}
-        {isMobile && scale <= 1 && numPages > 1 && (
-          <>
+        {/* ── Bottom-center nav arrows (mobile + desktop) ── */}
+        {numPages > 1 && !(isMobile && scale > 1) && (
+          <div
+            className={`absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-4 transition-all duration-300 ${
+              !isMobile || showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
             {/* Previous page arrow */}
-            {pageNumber > 1 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); goToPage(pageNumber - 1); setShowArrows(true) }}
-                className={`absolute left-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm shadow-lg shadow-black/10 border border-white/50 flex items-center justify-center active:scale-90 transition-all duration-300 ${
-                  showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-                aria-label="Oldingi sahifa"
-              >
-                <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-                </svg>
-              </button>
-            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); goToPage(pageNumber - 1); setShowArrows(true) }}
+              disabled={pageNumber <= 1}
+              tabIndex={!isMobile || showArrows ? 0 : -1}
+              className="w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm shadow-lg shadow-black/10 border border-white/50 flex items-center justify-center active:scale-90 hover:bg-white hover:shadow-xl transition-all disabled:opacity-30"
+              aria-label="Oldingi sahifa"
+            >
+              <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+
+            {/* Page indicator */}
+            <span className="text-sm font-semibold text-slate-600 tabular-nums bg-white/80 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-sm border border-white/50">
+              {pageNumber} / {numPages}
+            </span>
 
             {/* Next page arrow */}
-            {pageNumber < numPages && (
-              <button
-                onClick={(e) => { e.stopPropagation(); goToPage(pageNumber + 1); setShowArrows(true) }}
-                className={`absolute right-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm shadow-lg shadow-black/10 border border-white/50 flex items-center justify-center active:scale-90 transition-all duration-300 ${
-                  showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}
-                aria-label="Keyingi sahifa"
-              >
-                <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-                </svg>
-              </button>
-            )}
-          </>
+            <button
+              onClick={(e) => { e.stopPropagation(); goToPage(pageNumber + 1); setShowArrows(true) }}
+              disabled={pageNumber >= numPages}
+              tabIndex={!isMobile || showArrows ? 0 : -1}
+              className="w-11 h-11 rounded-full bg-white/80 backdrop-blur-sm shadow-lg shadow-black/10 border border-white/50 flex items-center justify-center active:scale-90 hover:bg-white hover:shadow-xl transition-all disabled:opacity-30"
+              aria-label="Keyingi sahifa"
+            >
+              <svg className="w-5 h-5 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
         )}
 
-        {/* Zoom hint */}
-        {isMobile && scale === 1 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-slate-400 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full pointer-events-none">
+        {/* Zoom hint — shows once per session */}
+        {isMobile && scale === 1 && showHint && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-[11px] text-slate-400 bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full pointer-events-none animate-fade-in">
             Chapga/o'ngga suring
           </div>
         )}

@@ -53,13 +53,15 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
 
   return (
     <div
+      role="timer"
+      aria-live="polite"
       className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-sm transition-all duration-300 ${urgencyStyles[urgency]}`}
     >
       {/* Pulsing dot indicator */}
       <span className="relative flex h-2 w-2">
         <span className={`absolute inset-0 rounded-full ${
-          urgency === 'urgent' ? 'bg-danger-500 animate-ping' :
-          urgency === 'warning' ? 'bg-warning-500 animate-ping' :
+          urgency === 'urgent' ? 'bg-danger-500 animate-pulse-urgent' :
+          urgency === 'warning' ? 'bg-warning-500 animate-pulse-urgent' :
           'bg-accent-400'
         } opacity-75`} />
         <span className={`relative inline-flex rounded-full h-2 w-2 ${

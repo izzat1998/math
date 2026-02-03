@@ -94,11 +94,12 @@ export default function ExamAnswersPage() {
                     <button
                       key={opt}
                       onClick={() => setAnswer(q, null, opt)}
-                      className={`w-8 h-8 rounded-md text-xs font-semibold border transition-all ${
+                      disabled={saving}
+                      className={`w-10 h-10 rounded-md text-xs font-semibold border transition-all ${
                         answers[`${q}`] === opt
                           ? 'bg-accent-500 text-white border-accent-500 shadow-sm'
                           : 'bg-white text-slate-600 border-slate-200 hover:border-accent-300 hover:bg-accent-50'
-                      }`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {opt}
                     </button>
@@ -124,6 +125,7 @@ export default function ExamAnswersPage() {
                         type="text"
                         value={answers[`${q}_${sub}`] || ''}
                         onChange={(e) => setAnswer(q, sub, e.target.value)}
+                        disabled={saving}
                         className="flex-1 !py-1.5 !px-2.5 !text-sm"
                         placeholder="To'g'ri javob..."
                       />
