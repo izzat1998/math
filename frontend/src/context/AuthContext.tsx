@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 import api from '../api/client'
 import type { AuthResponse } from '../api/types'
@@ -30,13 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setFullName(data.full_name)
   }
 
-  const loginWithTelegram = async (initData: string) => {
+  const loginWithTelegram = useCallback(async (initData: string) => {
     const { data } = await api.post<AuthResponse>('/auth/telegram/', { initData })
     setAuth(data)
     return data
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     const refreshToken = localStorage.getItem('refresh_token')
     if (refreshToken) {
       api.post('/auth/logout/', { refresh: refreshToken }).catch(() => {})
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('full_name')
     setStudentId(null)
     setFullName(null)
-  }
+  }, [])
 
   return (
     <AuthContext.Provider

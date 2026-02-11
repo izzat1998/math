@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 type ToastVariant = 'success' | 'error' | 'warning'
@@ -25,18 +25,27 @@ const variantStyles: Record<ToastVariant, string> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
+  const timeoutIds = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
+
+  // Cleanup all toast timers on unmount
+  useEffect(() => {
+    return () => {
+      timeoutIds.current.forEach(tid => clearTimeout(tid))
+    }
+  }, [])
 
   const toast = useCallback((message: string, variant: ToastVariant = 'error') => {
     const id = ++nextId
     const MAX_TOASTS = 5
     setToasts((prev) => {
       const next = [...prev, { id, message, variant }]
-      // Keep only the most recent toasts to prevent stack overflow
       return next.length > MAX_TOASTS ? next.slice(-MAX_TOASTS) : next
     })
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
+      timeoutIds.current.delete(id)
     }, 3000)
+    timeoutIds.current.set(id, timeoutId)
   }, [])
 
   return (

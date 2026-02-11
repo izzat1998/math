@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface TimerProps {
   startedAt: string
@@ -27,23 +27,29 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
     return Math.max(0, endTime - Date.now())
   })
 
+  const onExpireRef = useRef(onExpire)
+  onExpireRef.current = onExpire
+
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
   useEffect(() => {
     const endTime = new Date(startedAt).getTime() + durationMinutes * 60 * 1000
 
-    const tick = () => {
+    intervalRef.current = setInterval(() => {
       const diff = endTime - Date.now()
       if (diff <= 0) {
         setRemainingMs(0)
-        onExpire()
+        if (intervalRef.current) clearInterval(intervalRef.current)
+        onExpireRef.current()
         return
       }
       setRemainingMs(diff)
-    }
+    }, 1000)
 
-    tick()
-    const interval = setInterval(tick, 1000)
-    return () => clearInterval(interval)
-  }, [startedAt, durationMinutes, onExpire])
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [startedAt, durationMinutes])
 
   const h = Math.floor(remainingMs / 3600000)
   const m = Math.floor((remainingMs % 3600000) / 60000)

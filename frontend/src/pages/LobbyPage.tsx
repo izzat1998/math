@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
@@ -21,6 +21,7 @@ export default function LobbyPage() {
 
   const [lobby, setLobby] = useState<LobbyInfo | null>(null)
   const [remaining, setRemaining] = useState<number>(0)
+  const hasNavigated = useRef(false)
 
   useEffect(() => {
     api.get<LobbyInfo>(`/exams/${examId}/lobby/`).then(({ data }) => {
@@ -45,18 +46,23 @@ export default function LobbyPage() {
     if (!lobby) return
 
     const startTime = new Date(lobby.scheduled_start).getTime()
+    let interval: ReturnType<typeof setInterval>
 
     const tick = (): void => {
       const diff = startTime - Date.now()
       if (diff <= 0) {
-        navigate(`/exam/${examId}`, { replace: true })
+        clearInterval(interval)
+        if (!hasNavigated.current) {
+          hasNavigated.current = true
+          navigate(`/exam/${examId}`, { replace: true })
+        }
         return
       }
       setRemaining(diff)
     }
 
     tick()
-    const interval = setInterval(tick, 1000)
+    interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [lobby, examId, navigate])
 

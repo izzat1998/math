@@ -29,6 +29,8 @@ function processQueue(error: unknown, token: string | null) {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (!error.config) return Promise.reject(error)
+
     const originalRequest = error.config
 
     // Only handle 401 and avoid infinite loop

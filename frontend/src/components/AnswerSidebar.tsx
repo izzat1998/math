@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import MathKeyboard from './MathKeyboard'
 import { useCursorInsert } from '../hooks/useCursorInsert'
 import type { PageInfo } from './PdfViewer'
@@ -30,18 +30,33 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
   const [recentlySaved, setRecentlySaved] = useState<Set<string>>(new Set())
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const insertSymbol = useCursorInsert(inputRefs, answers, onAnswer)
+  const savedTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      savedTimers.current.forEach(tid => clearTimeout(tid))
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    }
+  }, [])
 
   const handleAnswer = useCallback((q: number, sub: string | null, value: string) => {
     onAnswer(q, sub, value)
     const key = answerKey(q, sub)
     setRecentlySaved((prev) => new Set(prev).add(key))
-    setTimeout(() => {
+    // Clear any existing timer for this key before setting a new one
+    const existing = savedTimers.current.get(key)
+    if (existing) clearTimeout(existing)
+    const tid = setTimeout(() => {
       setRecentlySaved((prev) => {
         const next = new Set(prev)
         next.delete(key)
         return next
       })
+      savedTimers.current.delete(key)
     }, 1500)
+    savedTimers.current.set(key, tid)
   }, [onAnswer])
 
   // Determine which questions to show
@@ -60,6 +75,7 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
   // Page navigation: jump to first question on prev/next page
   const handlePageNav = useCallback((direction: 'prev' | 'next') => {
     if (!pageInfo || !onQuestionFocus) return
+    if (pageInfo.questions.length === 0) return
     const targetPage = direction === 'prev' ? pageInfo.page - 1 : pageInfo.page + 1
     if (targetPage < 1 || targetPage > pageInfo.totalPages) return
     // Navigate to the first question that maps to the target page.
@@ -82,7 +98,8 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
   }, [])
 
   const handleBlur = useCallback(() => {
-    setTimeout(() => {
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    blurTimerRef.current = setTimeout(() => {
       const active = document.activeElement
       if (!(active instanceof HTMLInputElement) || !inputRefs.current?.has(
         Array.from(inputRefs.current.entries()).find(([, el]) => el === active)?.[0] ?? ''

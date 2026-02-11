@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import MathKeyboard from './MathKeyboard'
 import { useCursorInsert } from '../hooks/useCursorInsert'
 
@@ -35,6 +35,14 @@ export default function AnswerBar({
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const insertSymbol = useCursorInsert(inputRefs, answers, onAnswer)
   const swipeRef = useRef<number>(0)
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup blur timer on unmount
+  useEffect(() => {
+    return () => {
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    }
+  }, [])
 
   const selectedAnswer = answers[answerKey(currentQuestion, null)] || ''
 
@@ -120,7 +128,10 @@ export default function AnswerBar({
     }
   }, [focusedInput, totalQuestions, onNavigate])
 
-  const answeredCount = Object.keys(answers).length
+  const answeredCount = useMemo(
+    () => new Set(Object.keys(answers).map(k => k.split('_')[0])).size,
+    [answers]
+  )
   const progress = Math.round((answeredCount / totalQuestions) * 100)
 
   return (
@@ -253,7 +264,10 @@ export default function AnswerBar({
                   value={answers[key] || ''}
                   onChange={(e) => onAnswer(currentQuestion, sub, e.target.value)}
                   onFocus={() => { setFocusedInput(key); lastFocusedRef.current = key }}
-                  onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
+                  onBlur={() => {
+                    if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+                    blurTimerRef.current = setTimeout(() => setFocusedInput(null), 200)
+                  }}
                   disabled={disabled}
                   placeholder="Javobni kiriting..."
                   aria-label={`Savol ${currentQuestion}, ${sub} qism javob`}

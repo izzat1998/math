@@ -64,13 +64,14 @@ def start_exam(request, exam_id):
     if not (exam.open_at <= now <= exam.close_at):
         return Response({'error': 'Imtihon hozirda ochiq emas'}, status=status.HTTP_403_FORBIDDEN)
 
-    existing = ExamSession.objects.filter(student=request.user, exam=exam).first()
-    if existing:
-        if existing.status == ExamSession.Status.SUBMITTED:
+    session, created = ExamSession.objects.get_or_create(
+        student=request.user, exam=exam,
+    )
+    if not created:
+        if session.status == ExamSession.Status.SUBMITTED:
             return Response({'error': ALREADY_SUBMITTED_MSG}, status=status.HTTP_403_FORBIDDEN)
-        return Response(_session_payload(existing, exam))
+        return Response(_session_payload(session, exam))
 
-    session = ExamSession.objects.create(student=request.user, exam=exam)
     return Response(_session_payload(session, exam), status=status.HTTP_201_CREATED)
 
 

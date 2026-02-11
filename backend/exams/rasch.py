@@ -96,8 +96,9 @@ def estimate_item_difficulties(matrix, max_iter=100, tol=0.01):
             )
 
         betas -= betas.mean()
+        old_betas_centered = old_betas - old_betas.mean()
 
-        max_change = np.max(np.abs(betas - old_betas))
+        max_change = np.max(np.abs(betas - old_betas_centered))
         if max_change < tol:
             break
 

@@ -17,7 +17,7 @@ export function useCursorInsert(
 
       // Parse "36_a" → questionNumber=36, subPart="a"
       const [qStr, sub] = focusedKey.split('_')
-      onAnswer(Number(qStr), sub, next)
+      onAnswer(Number(qStr), sub ?? null, next)
 
       // Restore cursor after React re-render
       const cursorPos = start + text.length

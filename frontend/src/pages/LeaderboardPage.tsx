@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
+import { useAuth } from '../context/AuthContext'
 import type { LeaderboardResponse, EloHistoryResponse } from '../api/types'
 import EloChart from '../components/EloChart'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -85,10 +86,12 @@ function LeaderboardRow({
 
 export default function LeaderboardPage() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const { isTelegram, showBackButton, hideBackButton } = useTelegram()
   const [data, setData] = useState<LeaderboardResponse | null>(null)
   const [eloHistory, setEloHistory] = useState<EloHistoryResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isTelegram) {
@@ -100,17 +103,21 @@ export default function LeaderboardPage() {
   useEffect(() => {
     api.get<LeaderboardResponse>('/leaderboard/')
       .then(({ data }) => setData(data))
+      .catch(() => setError('Failed to load leaderboard'))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (token) {
+    if (isAuthenticated) {
       api.get<EloHistoryResponse>('/me/elo-history/')
         .then(({ data }) => setEloHistory(data))
         .catch(() => {})
     }
-  }, [])
+  }, [isAuthenticated])
+
+  if (error) {
+    return <div className="text-center text-red-400 p-8">{error}</div>
+  }
 
   if (!data && loading) {
     return <LoadingSpinner fullScreen label="Reyting yuklanmoqda..." />

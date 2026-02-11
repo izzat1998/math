@@ -84,16 +84,17 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
   const [pdfError, setPdfError] = useState(false)
 
   useEffect(() => {
+    let currentBlobUrl: string | null = null
     api.get(url, { responseType: 'blob' }).then(({ data }) => {
-      const blobUrl = URL.createObjectURL(data)
-      blobRef.current = blobUrl
-      setPdfBlob(blobUrl)
+      currentBlobUrl = URL.createObjectURL(data)
+      blobRef.current = currentBlobUrl
+      setPdfBlob(currentBlobUrl)
     }).catch(() => {
       setPdfError(true)
     })
     return () => {
-      if (blobRef.current) {
-        URL.revokeObjectURL(blobRef.current)
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl)
       }
     }
   }, [url])

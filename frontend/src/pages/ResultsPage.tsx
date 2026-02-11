@@ -109,6 +109,7 @@ export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
   const [results, setResults] = useState<ExamResults | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [expandedQ, setExpandedQ] = useState<number | null>(null)
   const { isTelegram, showBackButton, hideBackButton, hapticNotification } = useTelegram()
   const { isMobile } = useMobileDetect()
@@ -117,6 +118,9 @@ export default function ResultsPage() {
     api.get<ExamResults>(`/sessions/${sessionId}/results/`).then(({ data }) => {
       setResults(data)
       hapticNotification('success')
+    }).catch((err) => {
+      setError('Failed to load results. Please try again.')
+      console.error(err)
     })
   }, [sessionId, hapticNotification])
 
@@ -126,6 +130,22 @@ export default function ResultsPage() {
       return () => hideBackButton()
     }
   }, [isTelegram, showBackButton, hideBackButton, navigate])
+
+  if (error) {
+    return (
+      <div className="min-h-screen-dvh flex items-center justify-center bg-slate-50 bg-noise px-4">
+        <div className="text-center">
+          <p className="text-danger-600 font-semibold mb-4">{error}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="text-sm text-primary-600 font-medium hover:underline"
+          >
+            Bosh sahifaga qaytish
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   if (!results) {
     return <LoadingSpinner fullScreen label="Natijalar yuklanmoqda..." />
@@ -174,9 +194,18 @@ export default function ResultsPage() {
     )
   }
 
-  const correctCount = results.breakdown.filter((b) => b.is_correct).length
-  const wrongCount = results.breakdown.length - correctCount
-  const mcqAnswered = results.breakdown.filter((b) => b.question_number <= 35).length
+  // Count unique question numbers to avoid inflating totals from sub-parts (a, b)
+  const uniqueCorrectQuestions = new Set(
+    results.breakdown.filter((b) => b.is_correct).map((b) => b.question_number)
+  )
+  const uniqueAnsweredQuestions = new Set(
+    results.breakdown.map((b) => b.question_number)
+  )
+  const correctCount = uniqueCorrectQuestions.size
+  const wrongCount = uniqueAnsweredQuestions.size - correctCount
+  const mcqAnswered = new Set(
+    results.breakdown.filter((b) => b.question_number <= 35).map((b) => b.question_number)
+  ).size
   const unansweredMcq = 35 - mcqAnswered
   const scoreTotal = results.exercises_total
   const scoreValue = results.exercises_correct

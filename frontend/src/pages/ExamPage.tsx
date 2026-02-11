@@ -45,7 +45,7 @@ const IS_DEV = import.meta.env.DEV
 
 export default function ExamPage() {
   const { examId } = useParams<{ examId: string }>()
-  const { fullName } = useAuth()
+  const { fullName, isAuthenticated } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const { isMobile } = useMobileDetect()
@@ -63,8 +63,7 @@ export default function ExamPage() {
     setBackgroundColor,
   } = useTelegram()
 
-  const hasToken = !!localStorage.getItem('access_token')
-  const isMock = IS_DEV && !hasToken
+  const isMock = IS_DEV && !isAuthenticated
 
   const [exam, setExam] = useState<Exam | null>(null)
   const [session, setSession] = useState<SessionStart | null>(null)
@@ -76,6 +75,8 @@ export default function ExamPage() {
   const [activeQuestion, setActiveQuestion] = useState<number | undefined>()
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null)
   const [myElo, setMyElo] = useState<number | null>(isMock ? 1200 : null)
+  const isSubmitting = useRef(false)
+
 
   useEffect(() => {
     if (isTelegram) {
@@ -85,9 +86,9 @@ export default function ExamPage() {
   }, [isTelegram, setHeaderColor, setBackgroundColor])
 
   useEffect(() => {
-    if (!hasToken) return
+    if (!isAuthenticated) return
     api.get<{ current_elo: number }>('/me/elo-history/').then(({ data }) => setMyElo(data.current_elo)).catch(() => {})
-  }, [hasToken])
+  }, [isAuthenticated])
 
   useEffect(() => {
     api.get<Exam>(`/exams/${examId}/`).then(({ data }) => setExam(data)).catch(() => {
@@ -132,8 +133,9 @@ export default function ExamPage() {
         setAnswers(saved)
       }
     }).catch((err) => {
-      if (err.response?.data?.error === 'Already submitted') {
-        navigate(`/results/${examId}`)
+      if (err.response?.status === 403 && err.response?.data?.error) {
+        toast('Imtihon allaqachon topshirilgan', 'error')
+        navigate('/')
       } else {
         setFetchError(true)
         toast('Sessiyani boshlashda xatolik', 'error')
@@ -237,13 +239,15 @@ export default function ExamPage() {
   }, [isTelegram, showBackButton, hideBackButton, navigate])
 
   const handleExpire = useCallback(() => {
-    if (!session || submitted) return
+    if (isSubmitting.current || !session || submitted) return
+    isSubmitting.current = true
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
       setSubmitted(true)
       hapticNotification('warning')
       toast('Vaqt tugadi! Javoblar topshirildi.', 'success')
       navigate(`/results/${session.session_id}`)
     }).catch(() => {
+      isSubmitting.current = false
       toast('Vaqt tugadi, lekin topshirishda xatolik. Sahifani yangilang.', 'error')
     })
   }, [session, submitted, navigate, hapticNotification, toast])
@@ -252,6 +256,8 @@ export default function ExamPage() {
     setCurrentQuestion(q)
     hapticImpact('light')
   }, [hapticImpact])
+
+  const totalQuestions = (session as any)?.questions?.length ?? TOTAL_QUESTIONS
 
   const examStatus = getExamStatus(exam)
 
@@ -360,7 +366,7 @@ export default function ExamPage() {
         {/* Answer bar */}
         <AnswerBar
           currentQuestion={currentQuestion}
-          totalQuestions={TOTAL_QUESTIONS}
+          totalQuestions={totalQuestions}
           answers={answers}
           onAnswer={saveAnswer}
           onNavigate={handleNavigate}

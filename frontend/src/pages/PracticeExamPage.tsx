@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
+import { useTelegram } from '../hooks/useTelegram'
 import type { PracticeSession, Question } from '../api/types'
 import Timer from '../components/Timer'
 import MathKeyboard from '../components/MathKeyboard'
@@ -23,6 +24,7 @@ export default function PracticeExamPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { isTelegram, showConfirm: tgConfirm } = useTelegram()
 
   const [session, setSession] = useState<PracticeSession | null>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
@@ -30,6 +32,8 @@ export default function PracticeExamPage() {
   const [submitted, setSubmitted] = useState(false)
   const [showKeyboard, setShowKeyboard] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const isSubmitting = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     api.get<PracticeSession>(`/practice/${id}/`).then(({ data }) => {
@@ -49,12 +53,19 @@ export default function PracticeExamPage() {
 
   const saveAnswer = useCallback((questionId: string, answer: string): void => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
-    api.post(`/practice/${id}/answer/`, { question_id: questionId, answer }).catch(() => {})
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      api.post(`/practice/${id}/answer/`, { question_id: questionId, answer }).catch(() => {})
+    }, 500)
   }, [id])
 
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (!session || submitted) return
-    if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) return
+
+    const message = "Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz."
+    const confirmed = isTelegram ? await tgConfirm(message) : confirm(message)
+    if (!confirmed) return
 
     try {
       await api.post(`/practice/${session.id}/submit/`)
@@ -63,15 +74,17 @@ export default function PracticeExamPage() {
     } catch {
       toast('Topshirishda xatolik', 'error')
     }
-  }, [session, submitted, navigate, toast])
+  }, [session, submitted, navigate, toast, isTelegram, tgConfirm])
 
   const handleExpire = useCallback((): void => {
-    if (!session || submitted) return
+    if (isSubmitting.current || !session || submitted) return
+    isSubmitting.current = true
     api.post(`/practice/${session.id}/submit/`).then(() => {
       setSubmitted(true)
       toast('Vaqt tugadi! Javoblar topshirildi.', 'success')
       navigate(`/practice/${session.id}/results`)
     }).catch(() => {
+      isSubmitting.current = false
       toast('Vaqt tugadi, lekin topshirishda xatolik.', 'error')
     })
   }, [session, submitted, navigate, toast])
@@ -144,8 +157,10 @@ export default function PracticeExamPage() {
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                if (confirm('Chiqishni xohlaysizmi? Javoblaringiz saqlanadi.')) navigate('/')
+              onClick={async () => {
+                const msg = 'Chiqishni xohlaysizmi? Javoblaringiz saqlanadi.'
+                const confirmed = isTelegram ? await tgConfirm(msg) : confirm(msg)
+                if (confirmed) navigate('/')
               }}
               aria-label="Orqaga"
               className="w-8 h-8 rounded-lg bg-white/[0.08] flex items-center justify-center active:scale-90 transition-transform"

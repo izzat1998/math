@@ -85,15 +85,27 @@ export default function DashboardPage() {
       navigate('/login', { replace: true })
       return
     }
+
+    let cancelled = false
+
     api.get<UpcomingExam>('/exams/upcoming/').then(({ data }) => {
-      setUpcoming(data.exam)
-      setUpcomingLoaded(true)
-    }).catch(() => setUpcomingLoaded(true))
+      if (!cancelled) {
+        setUpcoming(data.exam)
+        setUpcomingLoaded(true)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setUpcomingLoaded(true)
+        toast('Imtihon ma\'lumotlarini yuklashda xatolik', 'error')
+      }
+    })
 
     api.get<{ current_elo: number }>('/me/elo-history/').then(({ data }) => {
-      setMyElo(data.current_elo)
+      if (!cancelled) setMyElo(data.current_elo)
     }).catch(() => {})
-  }, [isAuthenticated, navigate])
+
+    return () => { cancelled = true }
+  }, [isAuthenticated, navigate, toast])
 
   const startPractice = async (mode: 'light' | 'medium'): Promise<void> => {
     setStarting(mode)

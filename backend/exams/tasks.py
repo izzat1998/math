@@ -1,4 +1,6 @@
 import logging
+from datetime import timedelta
+
 
 from celery import shared_task
 from django.utils import timezone
@@ -14,7 +16,10 @@ def auto_submit_expired_sessions():
     now = timezone.now()
     session_ids = list(
         ExamSession.objects
-        .filter(status=ExamSession.Status.IN_PROGRESS)
+        .filter(
+            status=ExamSession.Status.IN_PROGRESS,
+            started_at__lte=now - timedelta(minutes=1),
+        )
         .select_related('exam')
         .values_list('id', 'started_at', 'exam__duration')
     )

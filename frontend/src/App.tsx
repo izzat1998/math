@@ -65,6 +65,8 @@ function TelegramGate({ children }: { children: ReactNode }) {
 
     if (!isAuthenticated && initData) {
       loginWithTelegram(initData).finally(() => setLoading(false))
+    } else {
+      setLoading(false)
     }
   }, [isTelegram, isAuthenticated, initData, loginWithTelegram, ready, expand, setHeaderColor, setBackgroundColor])
 

@@ -251,13 +251,16 @@ export function useTelegram(): UseTelegramReturn {
     })
   }, [tg])
 
+  const ready = useCallback(() => { tg?.ready() }, [tg])
+  const expand = useCallback(() => { tg?.expand() }, [tg])
+
   return {
     tg,
     isTelegram: !!tg?.initData,
     initData: tg?.initData ?? '',
     user: tg?.initDataUnsafe?.user,
-    ready: () => tg?.ready(),
-    expand: () => tg?.expand(),
+    ready,
+    expand,
     showMainButton,
     hideMainButton,
     setMainButtonLoading,

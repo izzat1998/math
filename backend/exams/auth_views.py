@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
+import time
 from urllib.parse import parse_qs
 
 from django.conf import settings
@@ -22,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 class AuthRateThrottle(AnonRateThrottle):
     rate = '10/minute'
+
+TELEGRAM_AUTH_MAX_AGE_SECONDS = 300  # 5 minutes
 
 
 def _get_tokens_for_student(student):
@@ -74,9 +77,27 @@ def _validate_telegram_init_data(init_data_raw):
 @permission_classes([AllowAny])
 @throttle_classes([AuthRateThrottle])
 def auth_telegram(request):
+    if not getattr(settings, 'TELEGRAM_BOT_TOKEN', ''):
+        return Response(
+            {'error': 'Telegram autentifikatsiya sozlanmagan'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     init_data = request.data.get('initData')
     if not init_data:
         return Response({'error': 'initData talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check auth_date freshness to prevent replay attacks
+    parsed_for_date = parse_qs(init_data)
+    auth_date_str = parsed_for_date.get('auth_date', [None])[0]
+    if not auth_date_str:
+        return Response({"error": "auth_date mavjud emas"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        auth_date = int(auth_date_str)
+    except (ValueError, TypeError):
+        return Response({"error": "auth_date noto'g'ri"}, status=status.HTTP_400_BAD_REQUEST)
+    if abs(time.time() - auth_date) > TELEGRAM_AUTH_MAX_AGE_SECONDS:
+        return Response({"error": "auth_date eskirgan"}, status=status.HTTP_401_UNAUTHORIZED)
 
     user_data = _validate_telegram_init_data(init_data)
     if not user_data:

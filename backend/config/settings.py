@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env file
@@ -22,6 +24,11 @@ if not SECRET_KEY:
         SECRET_KEY = 'django-insecure-dev-only-key'
     else:
         raise ValueError('SECRET_KEY environment variable must be set in production')
+
+if not DEBUG and SECRET_KEY.startswith('django-insecure'):
+    raise ImproperlyConfigured(
+        'SECRET_KEY is insecure. Set a proper SECRET_KEY environment variable for production.'
+    )
 
 ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()
