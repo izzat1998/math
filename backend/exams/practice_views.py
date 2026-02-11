@@ -1,6 +1,7 @@
 import random
 from collections import defaultdict
 
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -96,7 +97,7 @@ def practice_answer(request, session_id):
 
     question_id = request.data.get('question_id')
     answer = request.data.get('answer')
-    if not question_id or not answer:
+    if not question_id or answer is None:
         return Response({'error': 'question_id va answer talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
 
     answers = session.answers or {}
@@ -155,14 +156,19 @@ def practice_results(request, session_id):
 
 
 def _submit_practice(session):
-    questions = {str(q.id): q for q in session.questions.all()}
-    answers = session.answers or {}
-    correct = 0
-    for qid, q in questions.items():
-        student_answer = answers.get(qid, '')
-        if student_answer.strip().lower() == q.correct_answer.strip().lower():
-            correct += 1
-    session.score = correct
-    session.status = PracticeSession.Status.SUBMITTED
-    session.submitted_at = timezone.now()
-    session.save()
+    with transaction.atomic():
+        session = PracticeSession.objects.select_for_update().get(pk=session.pk)
+        if session.status == PracticeSession.Status.SUBMITTED:
+            return  # Already submitted, skip
+
+        questions = {str(q.id): q for q in session.questions.all()}
+        answers = session.answers or {}
+        correct = 0
+        for qid, q in questions.items():
+            student_answer = answers.get(qid, '')
+            if student_answer.strip().lower() == q.correct_answer.strip().lower():
+                correct += 1
+        session.score = correct
+        session.status = PracticeSession.Status.SUBMITTED
+        session.submitted_at = timezone.now()
+        session.save()

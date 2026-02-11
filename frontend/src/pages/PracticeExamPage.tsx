@@ -34,6 +34,7 @@ export default function PracticeExamPage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const isSubmitting = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingAnswerRef = useRef<{ questionId: string; answer: string } | null>(null)
 
   useEffect(() => {
     api.get<PracticeSession>(`/practice/${id}/`).then(({ data }) => {
@@ -49,14 +50,23 @@ export default function PracticeExamPage() {
     })
   }, [id, navigate, toast])
 
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
   const question: Question | null = session?.questions[currentIdx] ?? null
 
   const saveAnswer = useCallback((questionId: string, answer: string): void => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }))
 
+    pendingAnswerRef.current = { questionId, answer }
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
-      api.post(`/practice/${id}/answer/`, { question_id: questionId, answer }).catch(() => {})
+      api.post(`/practice/${id}/answer/`, { question_id: questionId, answer }).then(() => {
+        pendingAnswerRef.current = null
+      }).catch(() => {})
     }, 500)
   }, [id])
 
@@ -67,6 +77,19 @@ export default function PracticeExamPage() {
     const confirmed = isTelegram ? await tgConfirm(message) : confirm(message)
     if (!confirmed) return
 
+    // Flush any pending debounced answer save
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    if (pendingAnswerRef.current) {
+      const { questionId, answer } = pendingAnswerRef.current
+      try {
+        await api.post(`/practice/${session.id}/answer/`, { question_id: questionId, answer })
+      } catch {}
+      pendingAnswerRef.current = null
+    }
+
     try {
       await api.post(`/practice/${session.id}/submit/`)
       setSubmitted(true)
@@ -76,9 +99,23 @@ export default function PracticeExamPage() {
     }
   }, [session, submitted, navigate, toast, isTelegram, tgConfirm])
 
-  const handleExpire = useCallback((): void => {
+  const handleExpire = useCallback(async (): Promise<void> => {
     if (isSubmitting.current || !session || submitted) return
     isSubmitting.current = true
+
+    // Flush any pending debounced answer save
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    if (pendingAnswerRef.current) {
+      const { questionId, answer } = pendingAnswerRef.current
+      try {
+        await api.post(`/practice/${session.id}/answer/`, { question_id: questionId, answer })
+      } catch {}
+      pendingAnswerRef.current = null
+    }
+
     api.post(`/practice/${session.id}/submit/`).then(() => {
       setSubmitted(true)
       toast('Vaqt tugadi! Javoblar topshirildi.', 'success')

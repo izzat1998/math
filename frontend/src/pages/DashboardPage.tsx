@@ -69,7 +69,7 @@ function PracticeCard({
 }
 
 export default function DashboardPage() {
-  const { isAuthenticated, fullName } = useAuth()
+  const { fullName, logout } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
   const [upcoming, setUpcoming] = useState<UpcomingExam['exam']>(null)
@@ -81,11 +81,6 @@ export default function DashboardPage() {
   const [codeLoading, setCodeLoading] = useState(false)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login', { replace: true })
-      return
-    }
-
     let cancelled = false
 
     api.get<UpcomingExam>('/exams/upcoming/').then(({ data }) => {
@@ -105,7 +100,7 @@ export default function DashboardPage() {
     }).catch(() => {})
 
     return () => { cancelled = true }
-  }, [isAuthenticated, navigate, toast])
+  }, [toast])
 
   const startPractice = async (mode: 'light' | 'medium'): Promise<void> => {
     setStarting(mode)
@@ -118,8 +113,6 @@ export default function DashboardPage() {
       setStarting(null)
     }
   }
-
-  if (!isAuthenticated) return null
 
   const upcomingTime = upcoming?.scheduled_start
     ? new Date(upcoming.scheduled_start).toLocaleString('uz-UZ', {
@@ -158,6 +151,12 @@ export default function DashboardPage() {
                   <span className="text-[11px] font-bold text-white/80">{userInitial}</span>
                 </div>
               </div>
+              <button
+                onClick={() => { logout(); navigate('/login', { replace: true }) }}
+                className="text-sm text-white/40 hover:text-red-400 transition-colors font-medium pl-2 border-l border-white/10"
+              >
+                Chiqish
+              </button>
             </div>
           </div>
 

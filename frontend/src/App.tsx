@@ -55,6 +55,7 @@ function TelegramGate({ children }: { children: ReactNode }) {
   const { isTelegram, initData, ready, expand, setHeaderColor, setBackgroundColor } = useTelegram()
   const { isAuthenticated, loginWithTelegram } = useAuth()
   const [loading, setLoading] = useState(isTelegram && !isAuthenticated)
+  const [telegramError, setTelegramError] = useState(false)
 
   useEffect(() => {
     if (!isTelegram) return
@@ -64,7 +65,9 @@ function TelegramGate({ children }: { children: ReactNode }) {
     setBackgroundColor('#f8fafc')
 
     if (!isAuthenticated && initData) {
-      loginWithTelegram(initData).finally(() => setLoading(false))
+      loginWithTelegram(initData)
+        .catch(() => setTelegramError(true))
+        .finally(() => setLoading(false))
     } else {
       setLoading(false)
     }
@@ -73,6 +76,16 @@ function TelegramGate({ children }: { children: ReactNode }) {
   if (loading) {
     return <LoadingSpinner fullScreen label="Ulanmoqda..." />
   }
+
+  if (telegramError) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="text-center">
+        <p className="text-lg font-semibold text-red-600 mb-2">Autentifikatsiya xatosi</p>
+        <p className="text-sm text-slate-500 mb-4">Telegram orqali kirishda xatolik yuz berdi</p>
+        <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">Qayta urinish</button>
+      </div>
+    </div>
+  )
 
   return <>{children}</>
 }

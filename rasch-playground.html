@@ -1,0 +1,1508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rasch Model — Interactive Playground</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232734;
+    --border: #2e3345;
+    --text: #e4e6f0;
+    --text-dim: #8b8fa8;
+    --accent: #6c8cff;
+    --accent2: #ff6c8c;
+    --accent3: #6cffa0;
+    --accent4: #ffc76c;
+    --accent5: #c76cff;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    text-align: center;
+    padding: 32px 24px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent5));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--text-dim); font-size: 14px; }
+
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 16px 24px 0;
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 10px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active {
+    color: var(--accent);
+    background: var(--surface2);
+    border-color: var(--accent);
+    border-bottom: 2px solid var(--surface2);
+  }
+
+  .panels { padding: 0 24px 32px; }
+  .panel {
+    display: none;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 0 0 var(--radius) var(--radius);
+    padding: 28px;
+    animation: fadeIn 0.3s ease;
+  }
+  .panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--accent);
+  }
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 13px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 280px; }
+
+  .controls-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .controls-group h3 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .control-row label {
+    font-size: 13px;
+    min-width: 80px;
+    color: var(--text-dim);
+  }
+  .control-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    height: 6px;
+  }
+  .control-row .val {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    min-width: 50px;
+    text-align: right;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  canvas {
+    width: 100%;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .formula-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    margin: 16px 0;
+  }
+  .formula {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 20px;
+    color: var(--text);
+    margin: 8px 0;
+  }
+  .formula .theta { color: var(--accent); font-weight: 700; }
+  .formula .beta { color: var(--accent2); font-weight: 700; }
+  .formula .prob { color: var(--accent3); font-weight: 700; }
+
+  .insight-box {
+    background: linear-gradient(135deg, rgba(108,140,255,0.08), rgba(108,255,160,0.08));
+    border: 1px solid rgba(108,140,255,0.25);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .insight-box .icon { margin-right: 6px; }
+
+  .btn {
+    padding: 10px 20px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn:hover { background: var(--accent); color: var(--bg); }
+  .btn.primary { background: var(--accent); color: var(--bg); }
+  .btn.primary:hover { background: #8aa4ff; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-card .stat-val {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  .step-cards {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+  .step-card {
+    flex: 1;
+    min-width: 180px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .step-card .step-num {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg);
+    text-align: center;
+    line-height: 24px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .step-card h4 { font-size: 14px; margin-bottom: 4px; }
+  .step-card p { font-size: 12px; color: var(--text-dim); }
+
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .comparison-table th, .comparison-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .comparison-table th {
+    color: var(--text-dim);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .comparison-table td:first-child { font-weight: 600; }
+  .comparison-table .raw { color: var(--accent4); }
+  .comparison-table .rasch { color: var(--accent); }
+  .comparison-table .highlight { background: rgba(108,140,255,0.08); }
+
+  .mini-bar {
+    display: inline-block;
+    height: 8px;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 6px;
+    transition: width 0.3s;
+  }
+
+  @media (max-width: 768px) {
+    .row { flex-direction: column; }
+    .tabs { gap: 2px; }
+    .tab { padding: 8px 12px; font-size: 11px; }
+    .panel { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Rasch Model Playground</h1>
+  <p>Interactive guide to Item Response Theory (1PL) — the psychometric model powering your math exam</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab(0)">1. How It Works</div>
+  <div class="tab" onclick="showTab(1)">2. The Formula</div>
+  <div class="tab" onclick="showTab(2)">3. ICC Explorer</div>
+  <div class="tab" onclick="showTab(3)">4. Exam Simulation</div>
+  <div class="tab" onclick="showTab(4)">5. Rasch vs Raw</div>
+  <div class="tab" onclick="showTab(5)">6. Calibration</div>
+</div>
+
+<div class="panels">
+
+<!-- ====== TAB 0: HOW IT WORKS ====== -->
+<div class="panel active" id="panel-0">
+  <div class="section-title">How the Rasch Model Actually Works</div>
+  <div class="section-desc">
+    Your key question answered: yes — all questions start equal, then student responses reveal which ones are hard.
+  </div>
+
+  <div class="step-cards" style="margin-bottom:20px;">
+    <div class="step-card" style="border-left:3px solid var(--accent4);">
+      <div class="step-num" style="background:var(--accent4);">1</div>
+      <h4>Exam Day — All Equal</h4>
+      <p>1000 students take the 55-question exam. Every question is scored 1 or 0. No question is "worth more" yet — we simply record correct/incorrect.</p>
+    </div>
+    <div class="step-card" style="border-left:3px solid var(--accent2);">
+      <div class="step-num" style="background:var(--accent2);">2</div>
+      <h4>Count Responses</h4>
+      <p>We look at how many students got each question right. Q1: 950/1000 ✓. Q42: 50/1000 ✓. The rare ones are clearly harder.</p>
+    </div>
+    <div class="step-card" style="border-left:3px solid var(--accent);">
+      <div class="step-num" style="background:var(--accent);">3</div>
+      <h4>Calibrate (JMLE)</h4>
+      <p>The algorithm converts success rates into difficulty scores (β). Rare correct = high β. Common correct = low β. It iterates until stable.</p>
+    </div>
+    <div class="step-card" style="border-left:3px solid var(--accent3);">
+      <div class="step-num" style="background:var(--accent3);">4</div>
+      <h4>Score Students</h4>
+      <p>Now we score each student. Getting a hard question right (high β) boosts your ability (θ) more than getting an easy one right.</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col" style="max-width:340px;">
+      <div class="controls-group">
+        <h3>Live Demo — Watch Calibration Happen</h3>
+        <div class="control-row">
+          <label>Students</label>
+          <input type="range" min="50" max="1000" step="50" value="200" id="hw-n" oninput="document.getElementById('hw-n-val').textContent=this.value">
+          <span class="val" id="hw-n-val">200</span>
+        </div>
+        <div style="margin-top:10px;">
+          <button class="btn primary" onclick="runHowItWorks()" style="width:100%;">Generate Exam Data</button>
+        </div>
+      </div>
+
+      <div id="hw-phase" style="display:none;">
+        <div class="controls-group">
+          <h3>Current Phase</h3>
+          <div id="hw-phase-text" style="font-size:14px;font-weight:600;color:var(--accent);margin-bottom:8px;"></div>
+          <div id="hw-phase-desc" style="font-size:12px;color:var(--text-dim);"></div>
+          <div style="margin-top:12px;display:flex;gap:8px;">
+            <button class="btn" onclick="hwNextPhase()" id="hw-next-btn" style="flex:1;">Next Phase →</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="hw-stats" style="display:none;" class="stat-grid"></div>
+    </div>
+    <div class="col">
+      <canvas id="hw-canvas" width="700" height="500"></canvas>
+    </div>
+  </div>
+
+  <div class="insight-box" id="hw-insight" style="display:none;"></div>
+</div>
+
+<!-- ====== TAB 1: THE FORMULA ====== -->
+<div class="panel" id="panel-1">
+  <div class="section-title">The Rasch Model Formula</div>
+  <div class="section-desc">
+    The entire model comes down to one elegant equation. It predicts whether a student will answer a question correctly based on two numbers.
+  </div>
+
+  <div class="formula-box">
+    <div style="font-size:12px; color:var(--text-dim); margin-bottom:8px;">Probability of a correct answer</div>
+    <div class="formula">
+      <span class="prob">P(correct)</span> = exp(<span class="theta">θ</span> − <span class="beta">β</span>) / (1 + exp(<span class="theta">θ</span> − <span class="beta">β</span>))
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <div class="controls-group">
+        <h3>Parameters</h3>
+        <div class="control-row">
+          <label><span style="color:var(--accent)">θ</span> (ability)</label>
+          <input type="range" min="-4" max="4" step="0.1" value="0" id="f-theta" oninput="updateFormula()">
+          <span class="val" id="f-theta-val">0.0</span>
+        </div>
+        <div class="control-row">
+          <label><span style="color:var(--accent2)">β</span> (difficulty)</label>
+          <input type="range" min="-4" max="4" step="0.1" value="0" id="f-beta" oninput="updateFormula()">
+          <span class="val" id="f-beta-val" style="color:var(--accent2)">0.0</span>
+        </div>
+      </div>
+      <div class="insight-box">
+        <span class="icon">💡</span> <strong>Key idea:</strong> Only the <em>difference</em> θ − β matters. A student with θ=2 on an item with β=1 has the same probability as θ=0 on β=−1, because both give θ−β = 1.
+      </div>
+    </div>
+    <div class="col">
+      <div id="formula-viz" style="text-align:center; padding:20px;">
+        <canvas id="formula-canvas" width="500" height="300"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="stat-grid" id="formula-stats">
+    <div class="stat-card">
+      <div class="stat-val" id="f-diff">0.0</div>
+      <div class="stat-label">θ − β (difference)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--accent3)" id="f-prob">50.0%</div>
+      <div class="stat-label">P(correct)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--accent4)" id="f-odds">1.0</div>
+      <div class="stat-label">Odds (P / (1−P))</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" style="color:var(--accent5)" id="f-interp">Even chance</div>
+      <div class="stat-label">Interpretation</div>
+    </div>
+  </div>
+
+  <div class="step-cards">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h4>θ = β → 50%</h4>
+      <p>When student ability equals item difficulty, it's a coin flip — exactly 50% chance of getting it right.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h4>θ > β → Easy</h4>
+      <p>The student is stronger than the question. Higher difference = higher probability.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h4>θ < β → Hard</h4>
+      <p>The question is harder than the student's ability. The probability drops below 50%.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <h4>Same Scale</h4>
+      <p>θ and β are on the same "logit" scale, so you can directly compare students to items.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB 2: ICC EXPLORER ====== -->
+<div class="panel" id="panel-2">
+  <div class="section-title">Item Characteristic Curves (ICCs)</div>
+  <div class="section-desc">
+    Each item has a curve showing the probability of a correct response at every ability level. Drag the sliders to see how curves shift.
+  </div>
+
+  <div class="row">
+    <div class="col" style="min-width:320px; max-width:380px;">
+      <div class="controls-group">
+        <h3>Student</h3>
+        <div class="control-row">
+          <label><span style="color:var(--accent)">θ</span> ability</label>
+          <input type="range" min="-4" max="4" step="0.1" value="1.0" id="icc-theta" oninput="updateICC()">
+          <span class="val" id="icc-theta-val">1.0</span>
+        </div>
+      </div>
+      <div class="controls-group">
+        <h3>Items (5 questions)</h3>
+        <div class="control-row">
+          <label><span style="color:#2ecc71">Q1</span> β</label>
+          <input type="range" min="-4" max="4" step="0.1" value="-2" id="icc-b0" oninput="updateICC()">
+          <span class="val" id="icc-b0-val" style="color:#2ecc71">−2.0</span>
+        </div>
+        <div class="control-row">
+          <label><span style="color:#3498db">Q2</span> β</label>
+          <input type="range" min="-4" max="4" step="0.1" value="-0.5" id="icc-b1" oninput="updateICC()">
+          <span class="val" id="icc-b1-val" style="color:#3498db">−0.5</span>
+        </div>
+        <div class="control-row">
+          <label><span style="color:#f39c12">Q3</span> β</label>
+          <input type="range" min="-4" max="4" step="0.1" value="0.5" id="icc-b2" oninput="updateICC()">
+          <span class="val" id="icc-b2-val" style="color:#f39c12">0.5</span>
+        </div>
+        <div class="control-row">
+          <label><span style="color:#e74c3c">Q4</span> β</label>
+          <input type="range" min="-4" max="4" step="0.1" value="1.5" id="icc-b3" oninput="updateICC()">
+          <span class="val" id="icc-b3-val" style="color:#e74c3c">1.5</span>
+        </div>
+        <div class="control-row">
+          <label><span style="color:#9b59b6">Q5</span> β</label>
+          <input type="range" min="-4" max="4" step="0.1" value="3" id="icc-b4" oninput="updateICC()">
+          <span class="val" id="icc-b4-val" style="color:#9b59b6">3.0</span>
+        </div>
+      </div>
+
+      <div class="controls-group">
+        <h3>Probabilities for this student</h3>
+        <div id="icc-probs"></div>
+      </div>
+    </div>
+    <div class="col">
+      <canvas id="icc-canvas" width="700" height="450"></canvas>
+      <div class="insight-box" style="margin-top:12px;">
+        <span class="icon">💡</span> <strong>Notice:</strong> All ICC curves have the <em>same S-shape</em> — they only shift left/right. This is unique to the Rasch model (1PL). The point where each curve crosses 50% is exactly at β (the item's difficulty).
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB 3: EXAM SIMULATION ====== -->
+<div class="panel" id="panel-2">
+  <div class="section-title">Live Exam Simulation</div>
+  <div class="section-desc">
+    Generate synthetic students taking an exam. Watch how the Rasch model assigns ability scores differently from raw scores.
+  </div>
+
+  <div class="row">
+    <div class="col" style="max-width:350px;">
+      <div class="controls-group">
+        <h3>Simulation Settings</h3>
+        <div class="control-row">
+          <label>Students</label>
+          <input type="range" min="20" max="500" step="10" value="100" id="sim-n" oninput="document.getElementById('sim-n-val').textContent=this.value">
+          <span class="val" id="sim-n-val">100</span>
+        </div>
+        <div class="control-row">
+          <label>Items</label>
+          <input type="range" min="5" max="55" step="5" value="20" id="sim-j" oninput="document.getElementById('sim-j-val').textContent=this.value">
+          <span class="val" id="sim-j-val">20</span>
+        </div>
+        <div class="control-row">
+          <label>Ability SD</label>
+          <input type="range" min="0.3" max="2.5" step="0.1" value="1.0" id="sim-sd" oninput="document.getElementById('sim-sd-val').textContent=parseFloat(this.value).toFixed(1)">
+          <span class="val" id="sim-sd-val">1.0</span>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn primary" onclick="runSimulation()" style="width:100%;">Run Simulation</button>
+        </div>
+      </div>
+      <div class="stat-grid" id="sim-stats" style="display:none;"></div>
+      <div class="insight-box" id="sim-insight" style="display:none;"></div>
+    </div>
+    <div class="col">
+      <canvas id="sim-canvas" width="700" height="220"></canvas>
+      <canvas id="sim-canvas2" width="700" height="220" style="margin-top:12px;"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB 4: RASCH vs RAW ====== -->
+<div class="panel" id="panel-3">
+  <div class="section-title">Rasch Scoring vs Raw Scoring</div>
+  <div class="section-desc">
+    Raw scores treat every question equally. Rasch scoring accounts for <em>which</em> questions you got right.
+  </div>
+
+  <div class="row">
+    <div class="col" style="max-width:380px;">
+      <div class="controls-group">
+        <h3>Two students — same raw score, different patterns</h3>
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px;">Both got 5/10 correct. Toggle which questions each got right.</p>
+
+        <div style="margin-bottom: 12px;">
+          <div style="font-size:13px; font-weight:600; color:var(--accent); margin-bottom:6px;">Student A (got easy ones right)</div>
+          <div id="student-a-btns" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
+        </div>
+        <div>
+          <div style="font-size:13px; font-weight:600; color:var(--accent2); margin-bottom:6px;">Student B (got hard ones right)</div>
+          <div id="student-b-btns" style="display:flex; gap:4px; flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="margin-top:14px;">
+          <button class="btn" onclick="resetComparison()" style="width:100%; font-size:12px;">Reset to Default Pattern</button>
+        </div>
+      </div>
+
+      <div id="comparison-result" style="margin-top:12px;"></div>
+    </div>
+    <div class="col">
+      <canvas id="compare-canvas" width="700" height="420"></canvas>
+      <div class="insight-box" style="margin-top:12px;">
+        <span class="icon">💡</span> <strong>The key insight:</strong> Getting a <em>hard</em> question right tells us more about your ability than getting an easy one right. Rasch captures this — raw scores don't. Student B (who beat harder questions) deserves a higher ability estimate even though both scored 5/10.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== TAB 5: CALIBRATION ====== -->
+<div class="panel" id="panel-4">
+  <div class="section-title">How Calibration Works (JMLE)</div>
+  <div class="section-desc">
+    Joint Maximum Likelihood Estimation iteratively estimates both student abilities and item difficulties from response data.
+  </div>
+
+  <div class="step-cards">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h4>Collect Responses</h4>
+      <p>Build an N×J matrix: 1 = correct, 0 = wrong. Each row is a student, each column is an item.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h4>Initial Estimates</h4>
+      <p>Start with proportion-correct → logit transform for rough β and θ estimates.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h4>Iterate</h4>
+      <p>Fix betas → re-estimate thetas. Fix thetas → re-estimate betas. Repeat until convergence.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <h4>Center & Check Fit</h4>
+      <p>Mean-center betas. Compute infit/outfit to verify items conform to the model.</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col" style="max-width:350px;">
+      <div class="controls-group">
+        <h3>Calibration Demo</h3>
+        <div class="control-row">
+          <label>Students</label>
+          <input type="range" min="30" max="500" step="10" value="200" id="cal-n" oninput="document.getElementById('cal-n-val').textContent=this.value">
+          <span class="val" id="cal-n-val">200</span>
+        </div>
+        <div class="control-row">
+          <label>Items</label>
+          <input type="range" min="5" max="30" step="1" value="10" id="cal-j" oninput="document.getElementById('cal-j-val').textContent=this.value">
+          <span class="val" id="cal-j-val">10</span>
+        </div>
+        <div class="control-row">
+          <label>Iterations</label>
+          <input type="range" min="1" max="50" step="1" value="20" id="cal-iter" oninput="document.getElementById('cal-iter-val').textContent=this.value">
+          <span class="val" id="cal-iter-val">20</span>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="btn primary" onclick="runCalibration()" style="width:100%;">Run Calibration</button>
+        </div>
+      </div>
+      <div class="stat-grid" id="cal-stats" style="display:none;"></div>
+    </div>
+    <div class="col">
+      <canvas id="cal-canvas" width="700" height="420"></canvas>
+    </div>
+  </div>
+</div>
+
+</div><!-- /panels -->
+
+<script>
+// ===== UTILITIES =====
+function raschP(theta, beta) {
+  const x = Math.max(-30, Math.min(30, theta - beta));
+  return Math.exp(x) / (1 + Math.exp(x));
+}
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function boxMuller(rng) {
+  const u1 = rng(), u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+function getPixelRatio(ctx) {
+  return window.devicePixelRatio || 1;
+}
+
+function setupCanvas(canvas, w, h) {
+  const dpr = getPixelRatio();
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return ctx;
+}
+
+// ===== TAB SYSTEM =====
+function showTab(idx) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+  if (idx===0) updateFormula();
+  if (idx===1) updateICC();
+  if (idx===3) updateComparison();
+}
+
+// ===== TAB 1: FORMULA =====
+function updateFormula() {
+  const theta = parseFloat(document.getElementById('f-theta').value);
+  const beta = parseFloat(document.getElementById('f-beta').value);
+  document.getElementById('f-theta-val').textContent = theta.toFixed(1);
+  document.getElementById('f-beta-val').textContent = beta.toFixed(1);
+
+  const diff = theta - beta;
+  const p = raschP(theta, beta);
+  const odds = p / (1 - p + 1e-10);
+
+  document.getElementById('f-diff').textContent = diff.toFixed(1);
+  document.getElementById('f-prob').textContent = (p * 100).toFixed(1) + '%';
+  document.getElementById('f-odds').textContent = odds < 100 ? odds.toFixed(2) : '>' + Math.round(odds);
+
+  let interp = 'Even chance';
+  if (p > 0.95) interp = 'Almost certain';
+  else if (p > 0.8) interp = 'Very likely';
+  else if (p > 0.65) interp = 'Likely correct';
+  else if (p > 0.5) interp = 'Slight edge';
+  else if (p > 0.35) interp = 'Slight disadvantage';
+  else if (p > 0.2) interp = 'Unlikely';
+  else if (p > 0.05) interp = 'Very unlikely';
+  else interp = 'Almost impossible';
+  document.getElementById('f-interp').textContent = interp;
+
+  drawFormulaChart(theta, beta, p);
+}
+
+function drawFormulaChart(theta, beta, pVal) {
+  const canvas = document.getElementById('formula-canvas');
+  const W = 500, H = 300;
+  const ctx = setupCanvas(canvas, W, H);
+
+  const pad = { l: 50, r: 20, t: 30, b: 40 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#2e3345';
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y <= 1; y += 0.25) {
+    const py = pad.t + ph * (1 - y);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(W - pad.r, py); ctx.stroke();
+    ctx.fillStyle = '#8b8fa8'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+    ctx.fillText((y * 100).toFixed(0) + '%', pad.l - 8, py + 4);
+  }
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  for (let x = -4; x <= 4; x += 1) {
+    const px = pad.l + ((x + 4) / 8) * pw;
+    ctx.fillStyle = '#8b8fa8'; ctx.fillText(x.toFixed(0), px, H - pad.b + 20);
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, pad.t + ph); ctx.stroke();
+  }
+  ctx.fillStyle = '#8b8fa8'; ctx.fillText('θ (ability)', W / 2, H - 5);
+
+  // Draw ICC for current beta
+  ctx.beginPath();
+  ctx.strokeStyle = 'rgba(108,140,255,0.4)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i <= 200; i++) {
+    const t = -4 + (i / 200) * 8;
+    const p = raschP(t, beta);
+    const x = pad.l + ((t + 4) / 8) * pw;
+    const y = pad.t + ph * (1 - p);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 50% line at beta
+  const bx = pad.l + ((beta + 4) / 8) * pw;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = 'rgba(255,108,140,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(bx, pad.t); ctx.lineTo(bx, pad.t + ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ff6c8c'; ctx.font = 'bold 12px system-ui';
+  ctx.fillText('β=' + beta.toFixed(1), bx, pad.t - 8);
+
+  // Student point
+  const sx = pad.l + ((theta + 4) / 8) * pw;
+  const sy = pad.t + ph * (1 - pVal);
+
+  // Connecting lines
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = 'rgba(108,255,160,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sx, pad.t + ph); ctx.lineTo(sx, sy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l, sy); ctx.lineTo(sx, sy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Student dot
+  ctx.beginPath();
+  ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#6cffa0';
+  ctx.fill();
+  ctx.strokeStyle = '#1a1d27';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#6cffa0';
+  ctx.font = 'bold 12px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('P=' + (pVal * 100).toFixed(0) + '%', sx + 12, sy + 4);
+}
+
+// ===== TAB 2: ICC EXPLORER =====
+const iccColors = ['#2ecc71', '#3498db', '#f39c12', '#e74c3c', '#9b59b6'];
+
+function updateICC() {
+  const theta = parseFloat(document.getElementById('icc-theta').value);
+  document.getElementById('icc-theta-val').textContent = theta.toFixed(1);
+
+  const betas = [];
+  for (let i = 0; i < 5; i++) {
+    const b = parseFloat(document.getElementById('icc-b' + i).value);
+    betas.push(b);
+    document.getElementById('icc-b' + i + '-val').textContent = (b >= 0 ? '' : '') + b.toFixed(1);
+  }
+
+  // Update probabilities list
+  let html = '';
+  const qLabels = ['Q1 (Easy)', 'Q2', 'Q3', 'Q4', 'Q5 (Hard)'];
+  for (let i = 0; i < 5; i++) {
+    const p = raschP(theta, betas[i]);
+    const pct = (p * 100).toFixed(1);
+    html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+      <span style="color:${iccColors[i]};font-weight:600;font-size:13px;min-width:75px;">${qLabels[i]}</span>
+      <div style="flex:1;background:var(--surface2);height:10px;border-radius:5px;overflow:hidden;">
+        <div style="width:${pct}%;height:100%;background:${iccColors[i]};border-radius:5px;transition:width 0.2s;"></div>
+      </div>
+      <span style="font-family:monospace;font-size:12px;min-width:45px;text-align:right;color:${iccColors[i]}">${pct}%</span>
+    </div>`;
+  }
+  document.getElementById('icc-probs').innerHTML = html;
+
+  drawICC(theta, betas);
+}
+
+function drawICC(theta, betas) {
+  const canvas = document.getElementById('icc-canvas');
+  const W = 700, H = 450;
+  const ctx = setupCanvas(canvas, W, H);
+
+  const pad = { l: 55, r: 30, t: 30, b: 50 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#2e3345';
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y <= 1; y += 0.25) {
+    const py = pad.t + ph * (1 - y);
+    ctx.beginPath(); ctx.moveTo(pad.l, py); ctx.lineTo(W - pad.r, py); ctx.stroke();
+    ctx.fillStyle = '#8b8fa8'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+    ctx.fillText((y * 100).toFixed(0) + '%', pad.l - 8, py + 4);
+  }
+  for (let x = -4; x <= 4; x++) {
+    const px = pad.l + ((x + 4) / 8) * pw;
+    ctx.beginPath(); ctx.moveTo(px, pad.t); ctx.lineTo(px, pad.t + ph); ctx.stroke();
+    ctx.fillStyle = '#8b8fa8'; ctx.textAlign = 'center';
+    ctx.fillText(x.toFixed(0), px, H - pad.b + 18);
+  }
+
+  // 50% line
+  const y50 = pad.t + ph * 0.5;
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, y50); ctx.lineTo(W - pad.r, y50); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Axis labels
+  ctx.fillStyle = '#8b8fa8'; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Student Ability (θ)', W / 2, H - 8);
+  ctx.save(); ctx.translate(14, H / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('P(Correct)', 0, 0); ctx.restore();
+
+  // Draw ICCs
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.strokeStyle = iccColors[i];
+    ctx.lineWidth = 2.5;
+    for (let s = 0; s <= 300; s++) {
+      const t = -4 + (s / 300) * 8;
+      const p = raschP(t, betas[i]);
+      const x = pad.l + ((t + 4) / 8) * pw;
+      const y = pad.t + ph * (1 - p);
+      if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Beta marker on x-axis
+    const bx = pad.l + ((betas[i] + 4) / 8) * pw;
+    ctx.beginPath();
+    ctx.arc(bx, y50, 5, 0, Math.PI * 2);
+    ctx.fillStyle = iccColors[i];
+    ctx.fill();
+  }
+
+  // Theta vertical line
+  const tx = pad.l + ((theta + 4) / 8) * pw;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = 'rgba(108,140,255,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(tx, pad.t); ctx.lineTo(tx, pad.t + ph); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Student points on curves
+  for (let i = 0; i < 5; i++) {
+    const p = raschP(theta, betas[i]);
+    const sy = pad.t + ph * (1 - p);
+    ctx.beginPath();
+    ctx.arc(tx, sy, 6, 0, Math.PI * 2);
+    ctx.fillStyle = iccColors[i];
+    ctx.fill();
+    ctx.strokeStyle = '#1a1d27';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Labels
+  ctx.fillStyle = 'rgba(108,140,255,0.9)';
+  ctx.font = 'bold 12px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText('θ = ' + theta.toFixed(1), tx, pad.t - 10);
+}
+
+// ===== TAB 3: SIMULATION =====
+function runSimulation() {
+  const N = parseInt(document.getElementById('sim-n').value);
+  const J = parseInt(document.getElementById('sim-j').value);
+  const sd = parseFloat(document.getElementById('sim-sd').value);
+  const rng = mulberry32(42);
+
+  // Generate parameters
+  const trueBetas = [];
+  for (let j = 0; j < J; j++) trueBetas.push(-2.5 + (5 * j / (J - 1)));
+
+  const trueThetas = [];
+  for (let i = 0; i < N; i++) trueThetas.push(boxMuller(rng) * sd);
+
+  // Generate responses
+  const matrix = [];
+  for (let i = 0; i < N; i++) {
+    const row = [];
+    for (let j = 0; j < J; j++) {
+      row.push(rng() < raschP(trueThetas[i], trueBetas[j]) ? 1 : 0);
+    }
+    matrix.push(row);
+  }
+
+  // Raw scores
+  const rawScores = matrix.map(r => r.reduce((a, b) => a + b, 0));
+
+  // Estimate thetas (simplified — use raw score logit transform)
+  const estThetas = rawScores.map(s => {
+    const p = Math.max(0.01, Math.min(0.99, s / J));
+    return Math.log(p / (1 - p));
+  });
+
+  // Stats
+  const rawCorr = pearsonCorr(trueThetas, rawScores);
+  const raschCorr = pearsonCorr(trueThetas, estThetas);
+  const avgScore = rawScores.reduce((a, b) => a + b, 0) / N;
+
+  document.getElementById('sim-stats').style.display = 'grid';
+  document.getElementById('sim-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-val">${N}×${J}</div><div class="stat-label">Matrix size</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent3)">${avgScore.toFixed(1)}</div><div class="stat-label">Avg raw score</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent4)">${rawCorr.toFixed(3)}</div><div class="stat-label">Raw ↔ True θ</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent)">${raschCorr.toFixed(3)}</div><div class="stat-label">Rasch ↔ True θ</div></div>
+  `;
+
+  document.getElementById('sim-insight').style.display = 'block';
+  document.getElementById('sim-insight').innerHTML = `
+    <span class="icon">💡</span> <strong>Result:</strong> Rasch θ correlates at <strong>${raschCorr.toFixed(3)}</strong> with true ability vs raw score's <strong>${rawCorr.toFixed(3)}</strong>.
+    ${raschCorr > rawCorr ? 'Rasch provides a slightly better estimate of true ability because it accounts for item difficulty.' : 'With many items, raw scores approximate Rasch well, but Rasch still handles extremes better.'}
+  `;
+
+  drawSimScatter(trueThetas, rawScores, estThetas, J);
+  drawScoreHist(rawScores, J);
+}
+
+function drawSimScatter(trueThetas, rawScores, estThetas, J) {
+  const canvas = document.getElementById('sim-canvas');
+  const W = 700, H = 220;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 55, r: 20, t: 25, b: 35 };
+  const halfW = (W - pad.l - pad.r) / 2 - 15;
+
+  // Left: Raw vs True
+  drawScatter(ctx, trueThetas, rawScores.map(s => s / J), pad.l, pad.t, halfW, H - pad.t - pad.b,
+    'True θ', 'Raw Score %', '#ffc76c', 'Raw Score vs True Ability');
+
+  // Right: Rasch vs True
+  drawScatter(ctx, trueThetas, estThetas, pad.l + halfW + 30, pad.t, halfW, H - pad.t - pad.b,
+    'True θ', 'Rasch θ', '#6c8cff', 'Rasch θ vs True Ability');
+}
+
+function drawScatter(ctx, xs, ys, ox, oy, w, h, xl, yl, color, title) {
+  // Background
+  ctx.fillStyle = '#1a1d27';
+  ctx.fillRect(ox, oy, w, h);
+  ctx.strokeStyle = '#2e3345';
+  ctx.strokeRect(ox, oy, w, h);
+
+  ctx.fillStyle = '#8b8fa8';
+  ctx.font = 'bold 11px system-ui';
+  ctx.textAlign = 'center';
+  ctx.fillText(title, ox + w / 2, oy - 8);
+
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const xRange = xMax - xMin || 1, yRange = yMax - yMin || 1;
+
+  for (let i = 0; i < xs.length; i++) {
+    const px = ox + ((xs[i] - xMin) / xRange) * w;
+    const py = oy + h - ((ys[i] - yMin) / yRange) * h;
+    ctx.beginPath();
+    ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.5;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawScoreHist(rawScores, J) {
+  const canvas = document.getElementById('sim-canvas2');
+  const W = 700, H = 220;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 55, r: 20, t: 30, b: 40 };
+  const pw = W - pad.l - pad.r;
+  const ph = H - pad.t - pad.b;
+
+  const bins = new Array(J + 1).fill(0);
+  rawScores.forEach(s => bins[s]++);
+  const maxBin = Math.max(...bins);
+
+  ctx.fillStyle = '#8b8fa8'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Score Distribution', W / 2, pad.t - 10);
+
+  const barW = pw / (J + 1) - 1;
+  for (let s = 0; s <= J; s++) {
+    const x = pad.l + (s / (J + 1)) * pw;
+    const barH = (bins[s] / maxBin) * ph;
+    ctx.fillStyle = 'rgba(108,140,255,0.7)';
+    ctx.fillRect(x, pad.t + ph - barH, barW, barH);
+  }
+
+  // X axis
+  ctx.fillStyle = '#8b8fa8'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  const step = J > 30 ? 5 : J > 15 ? 2 : 1;
+  for (let s = 0; s <= J; s += step) {
+    const x = pad.l + (s / (J + 1)) * pw + barW / 2;
+    ctx.fillText(s, x, H - pad.b + 15);
+  }
+  ctx.fillText('Raw Score', W / 2, H - 5);
+}
+
+function pearsonCorr(x, y) {
+  const n = x.length;
+  const mx = x.reduce((a, b) => a + b) / n;
+  const my = y.reduce((a, b) => a + b) / n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = x[i] - mx, dy = y[i] - my;
+    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy;
+  }
+  return num / (Math.sqrt(dx2 * dy2) + 1e-10);
+}
+
+// ===== TAB 4: RASCH vs RAW =====
+let studentA = [1,1,1,1,1,0,0,0,0,0];
+let studentB = [0,0,0,0,0,1,1,1,1,1];
+const itemBetas = [-2.0, -1.5, -1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5];
+
+function setupComparison() {
+  const aDiv = document.getElementById('student-a-btns');
+  const bDiv = document.getElementById('student-b-btns');
+  renderCompBtns(aDiv, studentA, 'A');
+  renderCompBtns(bDiv, studentB, 'B');
+  updateComparison();
+}
+
+function renderCompBtns(div, arr, who) {
+  let html = '';
+  for (let i = 0; i < 10; i++) {
+    const diff = itemBetas[i].toFixed(1);
+    const active = arr[i] ? 'background:' + (who === 'A' ? 'var(--accent)' : 'var(--accent2)') + ';color:var(--bg);' : 'background:var(--surface);color:var(--text-dim);';
+    html += `<button onclick="toggleQ('${who}',${i})" style="width:56px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;${active};transition:all 0.15s;">
+      Q${i + 1}<br><span style="font-size:9px;opacity:0.7;">β=${diff}</span>
+    </button>`;
+  }
+  div.innerHTML = html;
+}
+
+function toggleQ(who, idx) {
+  if (who === 'A') { studentA[idx] = 1 - studentA[idx]; renderCompBtns(document.getElementById('student-a-btns'), studentA, 'A'); }
+  else { studentB[idx] = 1 - studentB[idx]; renderCompBtns(document.getElementById('student-b-btns'), studentB, 'B'); }
+  updateComparison();
+}
+
+function resetComparison() {
+  studentA = [1,1,1,1,1,0,0,0,0,0];
+  studentB = [0,0,0,0,0,1,1,1,1,1];
+  setupComparison();
+}
+
+function estimateTheta(responses, betas) {
+  const total = responses.reduce((a, b) => a + b, 0);
+  if (total === 0) return betas[0] - 2;
+  if (total === responses.length) return betas[betas.length - 1] + 2;
+  let theta = Math.log((total / responses.length) / (1 - total / responses.length));
+  for (let iter = 0; iter < 50; iter++) {
+    let d1 = 0, d2 = 0;
+    for (let j = 0; j < betas.length; j++) {
+      const p = raschP(theta, betas[j]);
+      d1 += responses[j] - p;
+      d2 += -p * (1 - p);
+    }
+    if (Math.abs(d2) < 1e-10) break;
+    const delta = d1 / d2;
+    theta -= delta;
+    theta = Math.max(-5, Math.min(5, theta));
+    if (Math.abs(delta) < 0.001) break;
+  }
+  return theta;
+}
+
+function updateComparison() {
+  const rawA = studentA.reduce((a, b) => a + b, 0);
+  const rawB = studentB.reduce((a, b) => a + b, 0);
+  const thetaA = estimateTheta(studentA, itemBetas);
+  const thetaB = estimateTheta(studentB, itemBetas);
+
+  const resDiv = document.getElementById('comparison-result');
+  resDiv.innerHTML = `
+    <table class="comparison-table">
+      <tr><th></th><th>Student A</th><th>Student B</th></tr>
+      <tr><td>Raw Score</td><td class="raw">${rawA}/10</td><td class="raw">${rawB}/10</td></tr>
+      <tr><td>Raw %</td><td class="raw">${(rawA * 10)}%</td><td class="raw">${(rawB * 10)}%</td></tr>
+      <tr class="highlight"><td>Rasch θ</td><td class="rasch">${thetaA.toFixed(2)}</td><td class="rasch">${thetaB.toFixed(2)}</td></tr>
+      <tr><td>Pattern</td>
+        <td style="font-size:11px;color:var(--text-dim)">${rawA === rawB ? 'Same score' : rawA > rawB ? 'Higher raw' : 'Lower raw'}</td>
+        <td style="font-size:11px;color:var(--text-dim)">${rawA === rawB ? 'Same score' : rawB > rawA ? 'Higher raw' : 'Lower raw'}</td>
+      </tr>
+      <tr class="${thetaA !== thetaB && rawA === rawB ? 'highlight' : ''}"><td>Winner</td>
+        <td colspan="2" style="text-align:center;font-weight:600;color:${thetaA > thetaB ? 'var(--accent)' : thetaA < thetaB ? 'var(--accent2)' : 'var(--text-dim)'}">
+          ${rawA === rawB && thetaA !== thetaB ?
+            (thetaA > thetaB ? 'Rasch says A is stronger (θ=' + thetaA.toFixed(2) + ' vs ' + thetaB.toFixed(2) + ')' :
+             'Rasch says B is stronger (θ=' + thetaB.toFixed(2) + ' vs ' + thetaA.toFixed(2) + ')') :
+            thetaA === thetaB ? 'Tied' :
+            thetaA > thetaB ? 'Student A (θ=' + thetaA.toFixed(2) + ')' : 'Student B (θ=' + thetaB.toFixed(2) + ')'
+          }
+        </td>
+      </tr>
+    </table>
+  `;
+
+  drawComparison(thetaA, thetaB, rawA, rawB);
+}
+
+function drawComparison(thetaA, thetaB, rawA, rawB) {
+  const canvas = document.getElementById('compare-canvas');
+  const W = 700, H = 420;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 55, r: 30, t: 30, b: 50 };
+  const pw = W - pad.l - pad.r;
+  const ph = (H - pad.t - pad.b - 30) / 2;
+
+  // Top: Item map with responses
+  const topY = pad.t;
+  ctx.fillStyle = '#8b8fa8'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Item-Person Map', W / 2, topY - 10);
+
+  // Draw difficulty scale
+  const scaleY = topY + 30;
+  ctx.strokeStyle = '#2e3345'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, scaleY); ctx.lineTo(W - pad.r, scaleY); ctx.stroke();
+
+  for (let x = -3; x <= 3; x++) {
+    const px = pad.l + ((x + 3) / 6) * pw;
+    ctx.beginPath(); ctx.moveTo(px, scaleY - 5); ctx.lineTo(px, scaleY + 5); ctx.stroke();
+    ctx.fillStyle = '#8b8fa8'; ctx.font = '10px system-ui';
+    ctx.fillText(x.toFixed(0), px, scaleY + 18);
+  }
+
+  // Item markers
+  for (let i = 0; i < 10; i++) {
+    const px = pad.l + ((itemBetas[i] + 3) / 6) * pw;
+    const gotA = studentA[i], gotB = studentB[i];
+    const size = 14;
+    const iy = scaleY - 30;
+
+    // A's result
+    ctx.beginPath();
+    ctx.arc(px - 6, iy, size / 2, 0, Math.PI * 2);
+    ctx.fillStyle = gotA ? 'var(--accent)' : 'rgba(108,140,255,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = 'var(--accent)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // B's result
+    ctx.beginPath();
+    ctx.arc(px + 6, iy, size / 2, 0, Math.PI * 2);
+    ctx.fillStyle = gotB ? 'var(--accent2)' : 'rgba(255,108,140,0.15)';
+    ctx.fill();
+    ctx.strokeStyle = 'var(--accent2)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.fillStyle = '#8b8fa8'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Q' + (i + 1), px, iy + 22);
+  }
+
+  // Student theta markers
+  const aX = pad.l + ((thetaA + 3) / 6) * pw;
+  const bX = pad.l + ((thetaB + 3) / 6) * pw;
+
+  ctx.fillStyle = 'var(--accent)'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
+  drawTriangle(ctx, aX, scaleY + 28, 8, 'var(--accent)');
+  ctx.fillText('A (θ=' + thetaA.toFixed(2) + ')', aX, scaleY + 48);
+
+  drawTriangle(ctx, bX, scaleY + 55, 8, 'var(--accent2)');
+  ctx.fillStyle = 'var(--accent2)';
+  ctx.fillText('B (θ=' + thetaB.toFixed(2) + ')', bX, scaleY + 75);
+
+  // Bottom: Expected probability per item
+  const botY = topY + ph + 50;
+  ctx.fillStyle = '#8b8fa8'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Expected P(correct) at each student\'s ability level', W / 2, botY);
+
+  const barY = botY + 15;
+  const barH = ph - 40;
+  const barW = (pw / 10) - 8;
+
+  for (let i = 0; i < 10; i++) {
+    const x = pad.l + (i / 10) * pw + 4;
+    const pA = raschP(thetaA, itemBetas[i]);
+    const pB = raschP(thetaB, itemBetas[i]);
+
+    // A bar
+    const hA = pA * barH;
+    ctx.fillStyle = 'rgba(108,140,255,0.7)';
+    ctx.fillRect(x, barY + barH - hA, barW / 2 - 1, hA);
+
+    // B bar
+    ctx.fillStyle = 'rgba(255,108,140,0.7)';
+    ctx.fillRect(x + barW / 2, barY + barH - hA, barW / 2 - 1, pB * barH);
+
+    // Actual result indicators
+    if (studentA[i]) { ctx.fillStyle = '#6cffa0'; ctx.fillRect(x, barY - 6, barW / 2 - 1, 4); }
+    if (studentB[i]) { ctx.fillStyle = '#6cffa0'; ctx.fillRect(x + barW / 2, barY - 6, barW / 2 - 1, 4); }
+
+    ctx.fillStyle = '#8b8fa8'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Q' + (i + 1), x + barW / 2, barY + barH + 14);
+  }
+
+  // Legend
+  ctx.font = '10px system-ui';
+  ctx.fillStyle = 'var(--accent)'; ctx.fillRect(W - pad.r - 120, barY, 8, 8);
+  ctx.fillText('Student A', W - pad.r - 75, barY + 8);
+  ctx.fillStyle = 'var(--accent2)'; ctx.fillRect(W - pad.r - 120, barY + 14, 8, 8);
+  ctx.fillText('Student B', W - pad.r - 75, barY + 22);
+  ctx.fillStyle = '#6cffa0'; ctx.fillRect(W - pad.r - 120, barY + 28, 8, 4);
+  ctx.fillStyle = '#6cffa0'; ctx.fillText('Got correct', W - pad.r - 75, barY + 34);
+}
+
+function drawTriangle(ctx, x, y, size, color) {
+  ctx.beginPath();
+  ctx.moveTo(x, y - size);
+  ctx.lineTo(x - size * 0.7, y + size * 0.3);
+  ctx.lineTo(x + size * 0.7, y + size * 0.3);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+// ===== TAB 5: CALIBRATION =====
+function runCalibration() {
+  const N = parseInt(document.getElementById('cal-n').value);
+  const J = parseInt(document.getElementById('cal-j').value);
+  const maxIter = parseInt(document.getElementById('cal-iter').value);
+  const rng = mulberry32(42);
+
+  // True parameters
+  const trueBetas = [];
+  for (let j = 0; j < J; j++) trueBetas.push(-2.5 + 5 * j / (J - 1));
+
+  const trueThetas = [];
+  for (let i = 0; i < N; i++) trueThetas.push(boxMuller(rng) * 1.0);
+
+  // Generate responses
+  const matrix = [];
+  for (let i = 0; i < N; i++) {
+    const row = [];
+    for (let j = 0; j < J; j++) row.push(rng() < raschP(trueThetas[i], trueBetas[j]) ? 1 : 0);
+    matrix.push(row);
+  }
+
+  // JMLE Calibration
+  let betas = new Array(J);
+  let thetas = new Array(N);
+
+  // Initial estimates
+  for (let j = 0; j < J; j++) {
+    let s = 0; for (let i = 0; i < N; i++) s += matrix[i][j];
+    const p = Math.max(0.01, Math.min(0.99, s / N));
+    betas[j] = -Math.log(p / (1 - p));
+  }
+  for (let i = 0; i < N; i++) {
+    let s = 0; for (let j = 0; j < J; j++) s += matrix[i][j];
+    const p = Math.max(0.01, Math.min(0.99, s / J));
+    thetas[i] = Math.log(p / (1 - p));
+  }
+
+  const history = [{ betas: [...betas], rmse: computeRMSE(trueBetas, betas) }];
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    // Update thetas
+    for (let i = 0; i < N; i++) {
+      const resp = matrix[i];
+      let s = 0; for (let j = 0; j < J; j++) s += resp[j];
+      if (s === 0) { thetas[i] = Math.min(...betas) - 2; continue; }
+      if (s === J) { thetas[i] = Math.max(...betas) + 2; continue; }
+
+      let t = thetas[i];
+      for (let it2 = 0; it2 < 20; it2++) {
+        let d1 = 0, d2 = 0;
+        for (let j = 0; j < J; j++) {
+          const p = raschP(t, betas[j]);
+          d1 += resp[j] - p;
+          d2 += -p * (1 - p);
+        }
+        if (Math.abs(d2) < 1e-10) break;
+        const delta = d1 / d2;
+        t -= delta;
+        t = Math.max(-5, Math.min(5, t));
+        if (Math.abs(delta) < 0.001) break;
+      }
+      thetas[i] = t;
+    }
+
+    // Update betas
+    for (let j = 0; j < J; j++) {
+      let s = 0; for (let i = 0; i < N; i++) s += matrix[i][j];
+      if (s === 0) { betas[j] = Math.max(...thetas) + 2; continue; }
+      if (s === N) { betas[j] = Math.min(...thetas) - 2; continue; }
+
+      let b = betas[j];
+      for (let it2 = 0; it2 < 20; it2++) {
+        let d1 = 0, d2 = 0;
+        for (let i = 0; i < N; i++) {
+          const p = raschP(thetas[i], b);
+          d1 += p - matrix[i][j];
+          d2 += -p * (1 - p);
+        }
+        if (Math.abs(d2) < 1e-10) break;
+        const delta = d1 / d2;
+        b -= delta;
+        b = Math.max(-5, Math.min(5, b));
+        if (Math.abs(delta) < 0.001) break;
+      }
+      betas[j] = b;
+    }
+
+    // Center
+    const mean = betas.reduce((a, b) => a + b) / J;
+    for (let j = 0; j < J; j++) betas[j] -= mean;
+    for (let i = 0; i < N; i++) thetas[i] -= mean;
+
+    history.push({ betas: [...betas], rmse: computeRMSE(trueBetas, betas) });
+  }
+
+  // Final stats
+  const trueCentered = trueBetas.map(b => b - trueBetas.reduce((a, c) => a + c) / J);
+  const estCentered = betas.map(b => b - betas.reduce((a, c) => a + c) / J);
+  const corr = pearsonCorr(trueCentered, estCentered);
+  const rmse = computeRMSE(trueCentered, estCentered);
+
+  document.getElementById('cal-stats').style.display = 'grid';
+  document.getElementById('cal-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-val">${corr.toFixed(4)}</div><div class="stat-label">β Correlation</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent3)">${rmse.toFixed(4)}</div><div class="stat-label">β RMSE</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:var(--accent4)">${maxIter}</div><div class="stat-label">Iterations</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:${corr>0.95?'var(--accent3)':'var(--accent2)'}">${corr>0.99?'Excellent':corr>0.95?'Good':corr>0.90?'Fair':'Needs more data'}</div><div class="stat-label">Quality</div></div>
+  `;
+
+  drawCalibration(trueCentered, estCentered, history);
+}
+
+function computeRMSE(a, b) {
+  const am = a.reduce((s, x) => s + x, 0) / a.length;
+  const bm = b.reduce((s, x) => s + x, 0) / b.length;
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += ((a[i] - am) - (b[i] - bm)) ** 2;
+  return Math.sqrt(sum / a.length);
+}
+
+function drawCalibration(trueBetas, estBetas, history) {
+  const canvas = document.getElementById('cal-canvas');
+  const W = 700, H = 420;
+  const ctx = setupCanvas(canvas, W, H);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { l: 55, r: 20, t: 30, b: 40 };
+  const halfW = (W - pad.l - pad.r) / 2 - 15;
+  const ph = H - pad.t - pad.b;
+
+  // Left: Recovery scatter
+  const allVals = [...trueBetas, ...estBetas];
+  const vMin = Math.min(...allVals) - 0.3;
+  const vMax = Math.max(...allVals) + 0.3;
+  const vRange = vMax - vMin;
+
+  ctx.fillStyle = '#8b8fa8'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Parameter Recovery', pad.l + halfW / 2, pad.t - 10);
+
+  ctx.fillStyle = '#1a1d27';
+  ctx.fillRect(pad.l, pad.t, halfW, ph);
+  ctx.strokeStyle = '#2e3345'; ctx.strokeRect(pad.l, pad.t, halfW, ph);
+
+  // Perfect line
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(255,100,100,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t + ph);
+  ctx.lineTo(pad.l + halfW, pad.t);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Points
+  for (let i = 0; i < trueBetas.length; i++) {
+    const x = pad.l + ((trueBetas[i] - vMin) / vRange) * halfW;
+    const y = pad.t + ph - ((estBetas[i] - vMin) / vRange) * ph;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#6c8cff';
+    ctx.fill();
+    ctx.strokeStyle = '#1a1d27'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  ctx.fillStyle = '#8b8fa8'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('True β', pad.l + halfW / 2, H - 5);
+  ctx.save(); ctx.translate(pad.l - 15, pad.t + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Estimated β', 0, 0); ctx.restore();
+
+  // Right: Convergence
+  const rx = pad.l + halfW + 30;
+  ctx.fillStyle = '#8b8fa8'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('RMSE Convergence', rx + halfW / 2, pad.t - 10);
+
+  ctx.fillStyle = '#1a1d27';
+  ctx.fillRect(rx, pad.t, halfW, ph);
+  ctx.strokeStyle = '#2e3345'; ctx.strokeRect(rx, pad.t, halfW, ph);
+
+  const rmses = history.map(h => h.rmse);
+  const rMax = Math.max(...rmses) * 1.1;
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#6cffa0';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < rmses.length; i++) {
+    const x = rx + (i / (rmses.length - 1)) * halfW;
+    const y = pad.t + ph - (rmses[i] / rMax) * ph;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Points on convergence
+  for (let i = 0; i < rmses.length; i++) {
+    const x = rx + (i / (rmses.length - 1)) * halfW;
+    const y = pad.t + ph - (rmses[i] / rMax) * ph;
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#6cffa0';
+    ctx.fill();
+  }
+
+  ctx.fillStyle = '#8b8fa8'; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Iteration', rx + halfW / 2, H - 5);
+  ctx.save(); ctx.translate(rx - 15, pad.t + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('RMSE', 0, 0); ctx.restore();
+}
+
+// ===== INIT =====
+updateFormula();
+updateICC();
+setupComparison();
+</script>
+</body>
+</html>

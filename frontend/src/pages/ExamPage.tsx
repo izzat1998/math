@@ -77,7 +77,6 @@ export default function ExamPage() {
   const [myElo, setMyElo] = useState<number | null>(isMock ? 1200 : null)
   const isSubmitting = useRef(false)
 
-
   useEffect(() => {
     if (isTelegram) {
       setHeaderColor('#0a1628')
@@ -159,6 +158,7 @@ export default function ExamPage() {
     }
   }, [submitted, session])
 
+
   const saveAnswer = useCallback(
     (questionNumber: number, subPart: string | null, answer: string) => {
       if (!session) return
@@ -211,6 +211,10 @@ export default function ExamPage() {
       if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) return
     }
 
+    // Clear any pending debounced answer saves
+    Object.values(debounceTimers.current).forEach(clearTimeout)
+    debounceTimers.current = {}
+
     try {
       setMainButtonLoading(true)
       await api.post(`/sessions/${session.session_id}/submit/`)
@@ -238,9 +242,14 @@ export default function ExamPage() {
     }
   }, [isTelegram, showBackButton, hideBackButton, navigate])
 
-  const handleExpire = useCallback(() => {
+  const handleExpire = useCallback(async () => {
     if (isSubmitting.current || !session || submitted) return
     isSubmitting.current = true
+
+    // Clear any pending debounced answer saves
+    Object.values(debounceTimers.current).forEach(clearTimeout)
+    debounceTimers.current = {}
+
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
       setSubmitted(true)
       hapticNotification('warning')
