@@ -334,6 +334,7 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
             <button
               onClick={() => setZoom((z) => Math.max(400, z - 100))}
               disabled={zoom <= 400}
+              aria-label="Kichiklashtirish"
               className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
             >
               <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -346,6 +347,7 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
             <button
               onClick={() => setZoom((z) => Math.min(1200, z + 100))}
               disabled={zoom >= 1200}
+              aria-label="Kattalashtirish"
               className="p-1.5 rounded-md hover:bg-slate-100 disabled:opacity-30 transition-colors"
             >
               <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -359,6 +361,7 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
         {isMobile && scale > 1 && (
           <button
             onClick={() => { setScale(1); setTranslate({ x: 0, y: 0 }) }}
+            aria-label="Zoom qaytarish"
             className="absolute right-3 text-xs font-medium text-accent-600 bg-accent-50 px-2.5 py-1 rounded-full active:scale-95"
           >
             {Math.round(scale * 100)}%

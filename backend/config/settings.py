@@ -131,9 +131,15 @@ SIMPLE_JWT = {
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 
+_redis_host = os.environ.get('REDIS_HOST', 'localhost')
+_redis_port = os.environ.get('REDIS_PORT', '6379')
 _redis_password = os.environ.get('REDIS_PASSWORD', '')
 _redis_auth = f':{_redis_password}@' if _redis_password else ''
-CELERY_BROKER_URL = f'redis://{_redis_auth}localhost:6379/0'
+CELERY_BROKER_URL = f'redis://{_redis_auth}{_redis_host}:{_redis_port}/0'
+CELERY_RESULT_BACKEND = f'redis://{_redis_auth}{_redis_host}:{_redis_port}/1'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
 
 CELERY_BEAT_SCHEDULE = {
     'auto-submit-expired-sessions': {

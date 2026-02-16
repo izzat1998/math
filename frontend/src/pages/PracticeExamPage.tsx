@@ -147,6 +147,7 @@ export default function PracticeExamPage() {
               onClick={() => {
                 if (confirm('Chiqishni xohlaysizmi? Javoblaringiz saqlanadi.')) navigate('/')
               }}
+              aria-label="Orqaga"
               className="w-8 h-8 rounded-lg bg-white/[0.08] flex items-center justify-center active:scale-90 transition-transform"
             >
               <ArrowLeftIcon className="w-4 h-4 text-white/60" />
@@ -163,7 +164,7 @@ export default function PracticeExamPage() {
           />
         </div>
         {/* Progress bar */}
-        <div className="h-0.5 bg-white/[0.06]">
+        <div className="h-0.5 bg-white/[0.06]" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100} aria-label={`${answeredCount} / ${totalQuestions} javob berilgan`}>
           <div
             className="h-full bg-accent-400 transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
@@ -210,6 +211,8 @@ export default function PracticeExamPage() {
                         key={i}
                         onClick={() => saveAnswer(question.id, choice)}
                         disabled={submitted}
+                        aria-pressed={isSelected}
+                        aria-label={`Variant ${letter}: ${choice}`}
                         className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all active:scale-[0.98] text-left ${
                           isSelected
                             ? 'border-primary-700 bg-primary-800/[0.03]'
@@ -229,7 +232,7 @@ export default function PracticeExamPage() {
                           {choice}
                         </span>
                         {isSelected && (
-                          <CheckIcon className="w-5 h-5 text-primary-700 ml-auto shrink-0" strokeWidth={2.5} />
+                          <CheckIcon className="w-5 h-5 text-primary-700 ml-auto shrink-0" strokeWidth={2.5} aria-hidden="true" />
                         )}
                       </button>
                     )
@@ -245,6 +248,7 @@ export default function PracticeExamPage() {
                     onFocus={() => setShowKeyboard(true)}
                     placeholder="Javobingizni kiriting..."
                     disabled={submitted}
+                    aria-label={`Savol ${currentIdx + 1} javob`}
                     className="w-full h-14 rounded-xl border-2 border-slate-100 bg-white px-4 text-[16px] font-mono font-medium text-slate-800 focus:border-primary-700 focus:outline-none transition-colors placeholder:text-slate-300"
                   />
                   {showKeyboard && (
@@ -271,6 +275,8 @@ export default function PracticeExamPage() {
               <button
                 key={q.id}
                 onClick={() => setCurrentIdx(i)}
+                aria-label={`Savol ${i + 1}`}
+                aria-current={i === currentIdx ? 'step' : undefined}
                 className={`w-7 h-7 rounded-md text-[11px] font-bold transition-all ${questionPillClass(i === currentIdx, !!answers[q.id])}`}
               >
                 {i + 1}

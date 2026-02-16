@@ -18,6 +18,7 @@ export default function BackButton({ to = '/', className, variant = 'dark' }: Ba
   return (
     <button
       onClick={() => navigate(to)}
+      aria-label="Orqaga"
       className={`${baseClass} ${variantClass} ${className ?? ''}`}
     >
       <ArrowLeftIcon className="w-4 h-4 text-white/60" />

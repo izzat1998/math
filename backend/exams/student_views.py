@@ -1,3 +1,5 @@
+import unicodedata
+
 from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -202,6 +204,13 @@ def session_results(request, session_id):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _normalize_answer(text):
+    """Normalize answer text for comparison: strip, lowercase, remove accents."""
+    text = text.strip().lower()
+    nfkd = unicodedata.normalize('NFKD', text)
+    return ''.join(c for c in nfkd if not unicodedata.combining(c))
+
+
 def _session_payload(session, exam):
     return {
         'session_id': str(session.id),
@@ -269,7 +278,7 @@ def _submit_session(session, auto=False):
     for answer in student_answers:
         key = (answer.question_number, answer.sub_part)
         expected = correct_answers.get(key, '')
-        answer.is_correct = answer.answer.strip().lower() == expected.strip().lower()
+        answer.is_correct = _normalize_answer(answer.answer) == _normalize_answer(expected)
 
     StudentAnswer.objects.bulk_update(student_answers, ['is_correct'], batch_size=100)
 

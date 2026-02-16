@@ -154,7 +154,7 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
             {totalAnswered}/{totalQuestions} javob berilgan
           </span>
         </div>
-        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden mb-3">
+        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden mb-3" role="progressbar" aria-valuenow={progressPercent} aria-valuemin={0} aria-valuemax={100} aria-label={`${totalAnswered} / ${totalQuestions} javob berilgan`}>
           <div
             className="h-full bg-accent-500 rounded-full transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
@@ -215,6 +215,8 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
                           key={opt}
                           onClick={() => { handleAnswer(q, null, opt); onQuestionFocus?.(q) }}
                           disabled={disabled}
+                          aria-pressed={answers[answerKey(q, null)] === opt}
+                          aria-label={`Savol ${q}, variant ${opt}`}
                           className={`flex-1 h-9 rounded-lg ${options.length === 6 ? 'text-xs' : 'text-sm'} font-semibold border transition-all ${
                             answers[answerKey(q, null)] === opt
                               ? 'bg-accent-500 text-white border-accent-500 shadow-sm'
@@ -226,7 +228,7 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
                       ))}
                     </div>
                     {recentlySaved.has(answerKey(q, null)) && (
-                      <svg className="w-4 h-4 text-success-500 shrink-0 animate-fade-in" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <svg className="w-4 h-4 text-success-500 shrink-0 animate-fade-in" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                       </svg>
                     )}
@@ -266,6 +268,7 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
                               onFocus={(e) => { handleFocus(key, e.currentTarget); onQuestionFocus?.(q) }}
                               onBlur={handleBlur}
                               disabled={disabled}
+                              aria-label={`Savol ${q}, ${sub} qism javob`}
                               className="flex-1 !py-1.5 !px-2.5 !text-sm"
                               placeholder="Javobingiz..."
                             />

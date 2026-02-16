@@ -120,7 +120,7 @@ export default function AnswerBar({
       onTouchEnd={(e) => handleSwipeEnd(e.changedTouches[0].clientX)}
     >
       {/* Progress bar — thin, always visible */}
-      <div className="w-full h-0.5 bg-slate-100 rounded-full mb-3 overflow-hidden">
+      <div className="w-full h-0.5 bg-slate-100 rounded-full mb-3 overflow-hidden" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label={`${answeredCount} / ${totalQuestions} javob berilgan`}>
         <div
           className="h-full bg-gradient-to-r from-accent-400 to-accent-600 rounded-full transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
@@ -142,6 +142,8 @@ export default function AnswerBar({
 
         <button
           onClick={() => setShowGrid(!showGrid)}
+          aria-expanded={showGrid}
+          aria-label={`Savol ${currentQuestion} / ${totalQuestions} — savollar panelini ochish`}
           className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/8 active:bg-primary-500/15 transition-colors"
         >
           <span className="text-[13px] font-bold text-primary-500 tracking-tight">
@@ -169,7 +171,7 @@ export default function AnswerBar({
 
       {/* Question grid overlay */}
       {showGrid && (
-        <div className="mb-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200/60 animate-scale-in">
+        <div className="mb-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200/60 animate-scale-in" role="navigation" aria-label="Savollar paneli">
           <div className="grid grid-cols-5 sm:grid-cols-9 gap-1.5">
             {Array.from({ length: totalQuestions }, (_, i) => i + 1).map((q) => {
               const isAnswered = !!answers[answerKey(q, null)] || !!answers[answerKey(q, 'a')]
@@ -205,6 +207,8 @@ export default function AnswerBar({
                 key={opt}
                 onClick={() => { if (!disabled) onAnswer(currentQuestion, null, opt) }}
                 disabled={disabled}
+                aria-pressed={selectedAnswer === opt}
+                aria-label={`Savol ${currentQuestion}, variant ${opt}`}
                 className={`h-[52px] rounded-2xl ${is6 ? 'text-[16px]' : 'text-[18px]'} font-bold transition-all select-none ${
                   selectedAnswer === opt
                     ? 'bg-accent-500 text-white shadow-lg shadow-accent-500/30 scale-[0.97]'
@@ -242,6 +246,7 @@ export default function AnswerBar({
                   onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                   disabled={disabled}
                   placeholder="Javobni kiriting..."
+                  aria-label={`Savol ${currentQuestion}, ${sub} qism javob`}
                   className="flex-1 !h-[52px] !px-4 !rounded-2xl !border-[1.5px] !border-slate-200 !bg-white !text-base !text-slate-800 placeholder:!text-slate-300 focus:!border-accent-500 focus:!ring-0 focus:!outline-none disabled:!opacity-40 transition-colors"
                 />
               </div>

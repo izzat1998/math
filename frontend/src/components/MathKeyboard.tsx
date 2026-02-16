@@ -11,11 +11,13 @@ type KeyDef = {
   label: string
   insert: string
   wide?: boolean
+  ariaLabel?: string
 } | {
   label: string
   action: 'backspace' | 'left' | 'right' | 'enter'
   wide?: boolean
   variant?: 'nav' | 'delete'
+  ariaLabel?: string
 }
 
 const ROW_NUMBERS: KeyDef[] = [
@@ -79,10 +81,10 @@ const ROW_LOGS: KeyDef[] = [
 ]
 
 const ROW_NAV: KeyDef[] = [
-  { label: '‹', action: 'left', variant: 'nav' },
-  { label: '›', action: 'right', variant: 'nav' },
-  { label: '↵', action: 'enter', variant: 'nav' },
-  { label: '⌫', action: 'backspace', variant: 'delete' },
+  { label: '‹', action: 'left', variant: 'nav', ariaLabel: 'Kursorni chapga' },
+  { label: '›', action: 'right', variant: 'nav', ariaLabel: "Kursorni o'ngga" },
+  { label: '↵', action: 'enter', variant: 'nav', ariaLabel: 'Keyingi maydon' },
+  { label: '⌫', action: 'backspace', variant: 'delete', ariaLabel: "O'chirish" },
 ]
 
 const ROWS = [ROW_NUMBERS, ROW_VARS, ROW_STRUCTURES, ROW_OPS_TRIG, ROW_ARC, ROW_LOGS, ROW_NAV]
@@ -105,6 +107,7 @@ function KeyButton({
   return (
     <button
       onPointerDown={handle}
+      aria-label={keyDef.ariaLabel || keyDef.label}
       className={`
         flex items-center justify-center rounded-lg text-center select-none
         transition-colors active:scale-95 active:brightness-95
