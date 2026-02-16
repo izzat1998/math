@@ -6,7 +6,7 @@ import api from '../api/client'
 import LoadingSpinner from './LoadingSpinner'
 import { useMobileDetect } from '../hooks/useMobileDetect'
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
 
 export interface PageInfo {
   page: number

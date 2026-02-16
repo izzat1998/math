@@ -1,3 +1,4 @@
+import logging
 import secrets
 import string
 
@@ -15,6 +16,7 @@ from .serializers import (
     InviteCodeSerializer,
 )
 
+logger = logging.getLogger(__name__)
 admin_perm = [permissions.IsAdminUser]
 
 
@@ -24,7 +26,8 @@ def admin_exams(request):
     if request.method == 'POST':
         serializer = MockExamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(created_by=request.user)
+        exam = serializer.save(created_by=request.user)
+        logger.info('Admin %s created exam %s (%s)', request.user.username, exam.id, exam.title)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     exams = MockExam.objects.all().order_by('-created_at')
@@ -38,6 +41,7 @@ def admin_exam_answers(request, exam_id):
     serializer = BulkCorrectAnswerSerializer(data=request.data, context={'exam': exam})
     serializer.is_valid(raise_exception=True)
     serializer.save()
+    logger.info('Admin %s uploaded answers for exam %s', request.user.username, exam_id)
     return Response({'message': 'Javoblar saqlandi'}, status=status.HTTP_201_CREATED)
 
 
@@ -55,6 +59,7 @@ def admin_generate_invite_codes(request, exam_id):
         for _ in range(count)
     ]
     InviteCode.objects.bulk_create(codes)
+    logger.info('Admin %s generated %d invite codes for exam %s', request.user.username, count, exam_id)
     return Response(InviteCodeSerializer(codes, many=True).data, status=status.HTTP_201_CREATED)
 
 

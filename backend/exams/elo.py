@@ -2,14 +2,13 @@ from django.db import transaction
 from django.db.models import Count, Q
 
 from .models import StudentRating, EloHistory, ExamSession, StudentAnswer
-
-TOTAL_POINTS = 55
+from .scoring import POINTS_TOTAL
 
 
 def _score_percent(session):
     """Calculate score as fraction of total points."""
     correct = StudentAnswer.objects.filter(session=session, is_correct=True).count()
-    return correct / TOTAL_POINTS
+    return correct / POINTS_TOTAL
 
 
 def update_elo_after_submission(session):
@@ -50,7 +49,7 @@ def _compute_and_save(session):
         .annotate(correct_count=Count('answers', filter=Q(answers__is_correct=True)))
     )
 
-    avg_scores = [s.correct_count / TOTAL_POINTS for s in all_sessions]
+    avg_scores = [s.correct_count / POINTS_TOTAL for s in all_sessions]
     exam_avg = sum(avg_scores) / len(avg_scores) if avg_scores else 0.5
 
     # Elo calculation

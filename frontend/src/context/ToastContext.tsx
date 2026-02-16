@@ -28,7 +28,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const toast = useCallback((message: string, variant: ToastVariant = 'error') => {
     const id = ++nextId
-    setToasts((prev) => [...prev, { id, message, variant }])
+    const MAX_TOASTS = 5
+    setToasts((prev) => {
+      const next = [...prev, { id, message, variant }]
+      // Keep only the most recent toasts to prevent stack overflow
+      return next.length > MAX_TOASTS ? next.slice(-MAX_TOASTS) : next
+    })
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id))
     }, 3000)

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
@@ -13,6 +13,19 @@ import AnswerBar from '../components/AnswerBar'
 import Timer from '../components/Timer'
 import EloBadge from '../components/EloBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
+
+function getStorageKey(sessionId: string) {
+  return `exam_answers_${sessionId}`
+}
+
+function loadSavedAnswers(sessionId: string): Record<string, string> {
+  try {
+    const saved = localStorage.getItem(getStorageKey(sessionId))
+    return saved ? JSON.parse(saved) : {}
+  } catch {
+    return {}
+  }
+}
 
 type ExamStatus = 'loading' | 'not_open' | 'closed' | 'active'
 
@@ -57,6 +70,7 @@ export default function ExamPage() {
   const [session, setSession] = useState<SessionStart | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submitted, setSubmitted] = useState(false)
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [fetchError, setFetchError] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(1)
   const [activeQuestion, setActiveQuestion] = useState<number | undefined>()
@@ -112,6 +126,11 @@ export default function ExamPage() {
 
     api.post<SessionStart>(`/exams/${examId}/start/`).then(({ data }) => {
       setSession(data)
+      // Restore any locally saved answers
+      const saved = loadSavedAnswers(data.session_id)
+      if (Object.keys(saved).length > 0) {
+        setAnswers(saved)
+      }
     }).catch((err) => {
       if (err.response?.data?.error === 'Already submitted') {
         navigate(`/results/${examId}`)
@@ -129,18 +148,46 @@ export default function ExamPage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [session, submitted])
 
+  // Clean up localStorage backup and debounce timers on submit
+  useEffect(() => {
+    if (submitted && session) {
+      localStorage.removeItem(getStorageKey(session.session_id))
+      Object.values(debounceTimers.current).forEach(clearTimeout)
+      debounceTimers.current = {}
+    }
+  }, [submitted, session])
+
   const saveAnswer = useCallback(
     (questionNumber: number, subPart: string | null, answer: string) => {
       if (!session) return
       const key = subPart ? `${questionNumber}_${subPart}` : `${questionNumber}`
-      setAnswers((prev) => ({ ...prev, [key]: answer }))
+
+      // Update local state immediately
+      setAnswers((prev) => {
+        const next = { ...prev, [key]: answer }
+        // Persist to localStorage as backup
+        try { localStorage.setItem(getStorageKey(session.session_id), JSON.stringify(next)) } catch {}
+        return next
+      })
       hapticImpact('light')
       if (isMock) return
-      api.post(`/sessions/${session.session_id}/answers/`, {
-        question_number: questionNumber,
-        sub_part: subPart,
-        answer,
-      }).catch(() => toast('Javob saqlanmadi', 'error'))
+
+      const sendToServer = () => {
+        api.post(`/sessions/${session.session_id}/answers/`, {
+          question_number: questionNumber,
+          sub_part: subPart,
+          answer,
+        }).catch(() => toast('Javob saqlanmadi', 'error'))
+      }
+
+      // MCQ answers (no sub_part, questions 1-35): save immediately
+      // Free-response answers: debounce 600ms to avoid spamming on every keystroke
+      if (!subPart) {
+        sendToServer()
+      } else {
+        clearTimeout(debounceTimers.current[key])
+        debounceTimers.current[key] = setTimeout(sendToServer, 600)
+      }
     },
     [session, hapticImpact, toast, isMock]
   )

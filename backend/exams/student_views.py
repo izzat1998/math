@@ -76,12 +76,32 @@ def start_exam(request, exam_id):
 @authentication_classes(student_auth)
 @permission_classes(student_perm)
 def save_answer(request, session_id):
-    question_number = request.data.get('question_number')
-    sub_part = request.data.get('sub_part')
     answer = request.data.get('answer')
+    sub_part = request.data.get('sub_part') or None
 
-    if not question_number or not answer:
-        return Response({'error': 'Savol raqami va javob talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        question_number = int(request.data.get('question_number'))
+    except (TypeError, ValueError):
+        return Response({'error': 'Savol raqami butun son bo\'lishi kerak'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if question_number < 1 or question_number > 45:
+        return Response({'error': 'Savol raqami 1 dan 45 gacha bo\'lishi kerak'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not answer or not isinstance(answer, str):
+        return Response({'error': 'Javob talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(answer) > 500:
+        return Response({'error': 'Javob 500 belgidan oshmasligi kerak'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if sub_part and sub_part not in ('a', 'b'):
+        return Response({'error': 'sub_part faqat "a" yoki "b" bo\'lishi mumkin'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Questions 1-35 should not have sub_part; 36-45 require it
+    if question_number <= 35 and sub_part:
+        return Response({'error': '1-35 savollar uchun sub_part kerak emas'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if question_number >= 36 and not sub_part:
+        return Response({'error': '36-45 savollar uchun sub_part ("a" yoki "b") talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
 
     with transaction.atomic():
         session = get_object_or_404(

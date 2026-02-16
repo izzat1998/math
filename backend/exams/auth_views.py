@@ -13,8 +13,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import Student, InviteCode
+from .permissions import StudentJWTAuthentication, IsStudent
 
 logger = logging.getLogger(__name__)
 
@@ -177,3 +179,21 @@ def auth_google(request):
         )
 
     return Response(_get_tokens_for_student(student))
+
+
+@api_view(['POST'])
+@authentication_classes([StudentJWTAuthentication])
+@permission_classes([IsStudent])
+def auth_logout(request):
+    """Blacklist the refresh token to invalidate the session."""
+    refresh_token = request.data.get('refresh')
+    if not refresh_token:
+        return Response({'error': 'refresh token talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        token = RefreshToken(refresh_token)
+        token.blacklist()
+    except TokenError:
+        pass  # Token already expired or invalid — treat as success
+
+    return Response({'message': 'Chiqish muvaffaqiyatli'})

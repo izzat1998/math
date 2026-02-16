@@ -13,6 +13,7 @@ urlpatterns = [
     path('auth/telegram/', auth_views.auth_telegram, name='auth-telegram'),
     path('auth/invite-code/', auth_views.auth_invite_code, name='auth-invite-code'),
     path('auth/google/', auth_views.auth_google, name='auth-google'),
+    path('auth/logout/', auth_views.auth_logout, name='auth-logout'),
 
     # JWT token endpoints
     path('token/', TokenObtainPairView.as_view(), name='token-obtain'),

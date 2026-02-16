@@ -51,7 +51,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
-    localStorage.clear()
+    const refreshToken = localStorage.getItem('refresh_token')
+    if (refreshToken) {
+      api.post('/auth/logout/', { refresh: refreshToken }).catch(() => {})
+    }
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('refresh_token')
+    localStorage.removeItem('student_id')
+    localStorage.removeItem('full_name')
     setStudentId(null)
     setFullName(null)
   }
