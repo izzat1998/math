@@ -1,18 +1,26 @@
 import hashlib
 import hmac
 import json
+import logging
 from urllib.parse import parse_qs
 
 from django.conf import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from rest_framework import status
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Student, InviteCode
+
+logger = logging.getLogger(__name__)
+
+
+class AuthRateThrottle(AnonRateThrottle):
+    rate = '10/minute'
 
 
 def _get_tokens_for_student(student):
@@ -29,6 +37,10 @@ def _get_tokens_for_student(student):
 
 def _validate_telegram_init_data(init_data_raw):
     """Validate Telegram Mini App initData per Telegram docs."""
+    if not settings.TELEGRAM_BOT_TOKEN:
+        logger.error('TELEGRAM_BOT_TOKEN is not configured — Telegram auth disabled')
+        return None
+
     parsed = parse_qs(init_data_raw)
     received_hash = parsed.get('hash', [None])[0]
     if not received_hash:
@@ -47,7 +59,7 @@ def _validate_telegram_init_data(init_data_raw):
         secret_key, data_check_string.encode(), hashlib.sha256
     ).hexdigest()
 
-    if computed_hash != received_hash:
+    if not hmac.compare_digest(computed_hash, received_hash):
         return None
 
     user_data = parsed.get('user', [None])[0]
@@ -59,6 +71,7 @@ def _validate_telegram_init_data(init_data_raw):
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def auth_telegram(request):
     init_data = request.data.get('initData')
     if not init_data:
@@ -84,6 +97,7 @@ def auth_telegram(request):
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def auth_invite_code(request):
     code = request.data.get('code')
     full_name = request.data.get('full_name')
@@ -122,6 +136,7 @@ def auth_invite_code(request):
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def auth_google(request):
     credential = request.data.get('credential')
     if not credential:
@@ -136,8 +151,8 @@ def auth_google(request):
             google_requests.Request(),
             settings.GOOGLE_CLIENT_ID,
         )
-    except ValueError as e:
-        print(f"[Google Auth Error] {e}")
+    except ValueError:
+        logger.warning('Google OAuth token verification failed')
         return Response(
             {'error': 'Google token yaroqsiz'},
             status=status.HTTP_401_UNAUTHORIZED,

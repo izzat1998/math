@@ -1,4 +1,4 @@
-import random
+import secrets
 import string
 
 from django.shortcuts import get_object_or_404
@@ -49,8 +49,9 @@ def admin_generate_invite_codes(request, exam_id):
     serializer.is_valid(raise_exception=True)
 
     count = serializer.validated_data['count']
+    alphabet = string.ascii_uppercase + string.digits
     codes = [
-        InviteCode(exam=exam, code=''.join(random.choices(string.ascii_uppercase + string.digits, k=8)))
+        InviteCode(exam=exam, code=''.join(secrets.choice(alphabet) for _ in range(10)))
         for _ in range(count)
     ]
     InviteCode.objects.bulk_create(codes)

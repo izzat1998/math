@@ -1,15 +1,16 @@
+from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from .elo import update_elo_after_submission
 from .models import MockExam, ExamSession, StudentAnswer, CorrectAnswer, EloHistory
 from .permissions import StudentJWTAuthentication, IsStudent
-from rest_framework.permissions import AllowAny
 from .scoring import compute_score, compute_rasch_score
-from .elo import update_elo_after_submission
 from .serializers import MockExamSerializer
 
 student_auth = [StudentJWTAuthentication]
@@ -30,7 +31,7 @@ def latest_exam(request):
 
 @api_view(['GET'])
 @authentication_classes(student_auth)
-@permission_classes([AllowAny])
+@permission_classes(student_perm)
 def exam_detail(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
     now = timezone.now()
@@ -42,10 +43,13 @@ def exam_detail(request, exam_id):
 
 @api_view(['GET'])
 @authentication_classes(student_auth)
-@permission_classes([AllowAny])
+@permission_classes(student_perm)
 def exam_pdf(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
-    return FileResponse(exam.pdf_file.open(), content_type='application/pdf')
+    if not exam.pdf_file:
+        return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+    f = exam.pdf_file.open()
+    return FileResponse(f, content_type='application/pdf')
 
 
 @api_view(['POST'])
@@ -72,16 +76,6 @@ def start_exam(request, exam_id):
 @authentication_classes(student_auth)
 @permission_classes(student_perm)
 def save_answer(request, session_id):
-    session = get_object_or_404(ExamSession, id=session_id, student=request.user)
-
-    if session.status == ExamSession.Status.SUBMITTED:
-        return Response({'error': 'Imtihon allaqachon topshirilgan'}, status=status.HTTP_403_FORBIDDEN)
-
-    elapsed_minutes = (timezone.now() - session.started_at).total_seconds() / 60
-    if elapsed_minutes >= session.exam.duration:
-        _submit_session(session, auto=True)
-        return Response({'error': 'Vaqt tugadi, imtihon avtomatik topshirildi'}, status=status.HTTP_403_FORBIDDEN)
-
     question_number = request.data.get('question_number')
     sub_part = request.data.get('sub_part')
     answer = request.data.get('answer')
@@ -89,12 +83,26 @@ def save_answer(request, session_id):
     if not question_number or not answer:
         return Response({'error': 'Savol raqami va javob talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
 
-    StudentAnswer.objects.update_or_create(
-        session=session,
-        question_number=question_number,
-        sub_part=sub_part,
-        defaults={'answer': answer},
-    )
+    with transaction.atomic():
+        session = get_object_or_404(
+            ExamSession.objects.select_for_update(),
+            id=session_id, student=request.user,
+        )
+
+        if session.status == ExamSession.Status.SUBMITTED:
+            return Response({'error': 'Imtihon allaqachon topshirilgan'}, status=status.HTTP_403_FORBIDDEN)
+
+        elapsed_minutes = (timezone.now() - session.started_at).total_seconds() / 60
+        if elapsed_minutes >= session.exam.duration:
+            _submit_session(session, auto=True)
+            return Response({'error': 'Vaqt tugadi, imtihon avtomatik topshirildi'}, status=status.HTTP_403_FORBIDDEN)
+
+        StudentAnswer.objects.update_or_create(
+            session=session,
+            question_number=question_number,
+            sub_part=sub_part,
+            defaults={'answer': answer},
+        )
     return Response({'message': 'Javob saqlandi'})
 
 
@@ -102,12 +110,16 @@ def save_answer(request, session_id):
 @authentication_classes(student_auth)
 @permission_classes(student_perm)
 def submit_exam(request, session_id):
-    session = get_object_or_404(ExamSession, id=session_id, student=request.user)
+    with transaction.atomic():
+        session = get_object_or_404(
+            ExamSession.objects.select_for_update(),
+            id=session_id, student=request.user,
+        )
 
-    if session.status == ExamSession.Status.SUBMITTED:
-        return Response({'error': ALREADY_SUBMITTED_MSG}, status=status.HTTP_403_FORBIDDEN)
+        if session.status == ExamSession.Status.SUBMITTED:
+            return Response({'error': ALREADY_SUBMITTED_MSG}, status=status.HTTP_403_FORBIDDEN)
 
-    _submit_session(session, auto=False)
+        _submit_session(session, auto=False)
     return Response({'message': 'Imtihon topshirildi'})
 
 
@@ -219,7 +231,15 @@ def exam_lobby(request, exam_id):
 
 
 def _submit_session(session, auto=False):
-    """Grade all answers and mark session as submitted."""
+    """Grade all answers and mark session as submitted.
+
+    Expects to be called inside a transaction with the session already
+    locked via select_for_update(). The Celery task path uses
+    submit_session_safe() which acquires its own lock.
+    """
+    if session.status == ExamSession.Status.SUBMITTED:
+        return  # Already submitted (race condition guard)
+
     correct_answers = {
         (ca.question_number, ca.sub_part): ca.correct_answer
         for ca in CorrectAnswer.objects.filter(exam=session.exam)
@@ -231,7 +251,7 @@ def _submit_session(session, auto=False):
         expected = correct_answers.get(key, '')
         answer.is_correct = answer.answer.strip().lower() == expected.strip().lower()
 
-    StudentAnswer.objects.bulk_update(student_answers, ['is_correct'])
+    StudentAnswer.objects.bulk_update(student_answers, ['is_correct'], batch_size=100)
 
     session.status = ExamSession.Status.SUBMITTED
     session.submitted_at = timezone.now()
@@ -239,3 +259,13 @@ def _submit_session(session, auto=False):
     session.save()
 
     update_elo_after_submission(session)
+
+
+def submit_session_safe(session_id, auto=False):
+    """Thread-safe submission entry point for Celery tasks."""
+    with transaction.atomic():
+        try:
+            session = ExamSession.objects.select_for_update().get(id=session_id)
+        except ExamSession.DoesNotExist:
+            return
+        _submit_session(session, auto=auto)

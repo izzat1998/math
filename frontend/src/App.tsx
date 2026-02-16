@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { useTelegram } from './hooks/useTelegram'
@@ -21,6 +21,22 @@ import ExamAnswersPage from './pages/admin/ExamAnswersPage'
 import ExamResultsPage from './pages/admin/ExamResultsPage'
 import InviteCodesPage from './pages/admin/InviteCodesPage'
 import LeaderboardPage from './pages/LeaderboardPage'
+
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth()
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+  return <>{children}</>
+}
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  const hasAdminToken = !!localStorage.getItem('admin_access_token')
+  if (!hasAdminToken) {
+    return <Navigate to="/admin" replace />
+  }
+  return <>{children}</>
+}
 
 function TelegramGate({ children }: { children: ReactNode }) {
   const { isTelegram, initData, ready, expand, setHeaderColor, setBackgroundColor } = useTelegram()
@@ -55,20 +71,20 @@ function App() {
           <ToastProvider>
             <TelegramGate>
               <Routes>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
                 <Route path="/login" element={<LoginPage />} />
-                <Route path="/practice/:id" element={<PracticeExamPage />} />
-                <Route path="/practice/:id/results" element={<PracticeResultsPage />} />
-                <Route path="/exam/:examId/lobby" element={<LobbyPage />} />
-                <Route path="/exam/:examId" element={<ExamPage />} />
-                <Route path="/results/:sessionId" element={<ResultsPage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/practice/:id" element={<ProtectedRoute><PracticeExamPage /></ProtectedRoute>} />
+                <Route path="/practice/:id/results" element={<ProtectedRoute><PracticeResultsPage /></ProtectedRoute>} />
+                <Route path="/exam/:examId/lobby" element={<ProtectedRoute><LobbyPage /></ProtectedRoute>} />
+                <Route path="/exam/:examId" element={<ProtectedRoute><ExamPage /></ProtectedRoute>} />
+                <Route path="/results/:sessionId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
+                <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<AdminLoginPage />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                <Route path="/admin/exams/create" element={<CreateExamPage />} />
-                <Route path="/admin/exams/:examId/answers" element={<ExamAnswersPage />} />
-                <Route path="/admin/exams/:examId/results" element={<ExamResultsPage />} />
-                <Route path="/admin/exams/:examId/codes" element={<InviteCodesPage />} />
+                <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                <Route path="/admin/exams/create" element={<AdminRoute><CreateExamPage /></AdminRoute>} />
+                <Route path="/admin/exams/:examId/answers" element={<AdminRoute><ExamAnswersPage /></AdminRoute>} />
+                <Route path="/admin/exams/:examId/results" element={<AdminRoute><ExamResultsPage /></AdminRoute>} />
+                <Route path="/admin/exams/:examId/codes" element={<AdminRoute><InviteCodesPage /></AdminRoute>} />
               </Routes>
             </TelegramGate>
           </ToastProvider>

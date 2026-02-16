@@ -1,12 +1,20 @@
+import os
 import uuid
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.text import get_valid_filename
+
+
+def exam_pdf_path(instance, filename):
+    """Sanitize uploaded PDF filename to prevent path traversal."""
+    safe_name = get_valid_filename(os.path.basename(filename))
+    return f'exams/pdfs/{instance.id}_{safe_name}'
 
 
 class MockExam(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
-    pdf_file = models.FileField(upload_to='exams/pdfs/')
+    pdf_file = models.FileField(upload_to=exam_pdf_path)
     open_at = models.DateTimeField()
     close_at = models.DateTimeField()
     duration = models.IntegerField(default=150, help_text="Davomiyligi (daqiqalarda)")
@@ -64,12 +72,12 @@ class ExamSession(models.Model):
         SUBMITTED = 'submitted', 'Topshirilgan'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='sessions')
-    exam = models.ForeignKey(MockExam, on_delete=models.CASCADE, related_name='sessions')
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='sessions', db_index=True)
+    exam = models.ForeignKey(MockExam, on_delete=models.CASCADE, related_name='sessions', db_index=True)
     started_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
     is_auto_submitted = models.BooleanField(default=False)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_PROGRESS)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.IN_PROGRESS, db_index=True)
 
     class Meta:
         unique_together = ('student', 'exam')
@@ -79,7 +87,7 @@ class ExamSession(models.Model):
 
 
 class StudentAnswer(models.Model):
-    session = models.ForeignKey(ExamSession, on_delete=models.CASCADE, related_name='answers')
+    session = models.ForeignKey(ExamSession, on_delete=models.CASCADE, related_name='answers', db_index=True)
     question_number = models.IntegerField()
     sub_part = models.CharField(max_length=1, null=True, blank=True)
     answer = models.CharField(max_length=255)

@@ -1,3 +1,5 @@
+from django.db.models import Sum, F, Window
+from django.db.models.functions import RowNumber
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -9,28 +11,50 @@ student_auth = [StudentJWTAuthentication]
 student_perm = [IsStudent]
 
 
-def _trend_and_delta(student):
-    """Determine trend and last delta from Elo history."""
-    recent = list(
-        EloHistory.objects.filter(student=student)
-        .order_by('-created_at')
-        .values_list('elo_delta', flat=True)[:3]
+def _prefetch_trends(student_ids):
+    """Batch-fetch trend data for a list of student IDs in one query.
+
+    Returns a dict mapping student_id -> (trend, last_delta).
+    """
+    if not student_ids:
+        return {}
+
+    # Fetch the 3 most recent elo_delta values per student
+    history_qs = (
+        EloHistory.objects
+        .filter(student_id__in=student_ids)
+        .order_by('student_id', '-created_at')
     )
-    if not recent:
-        return 'stable', 0
-    last_delta = recent[0]
-    avg_delta = sum(recent) / len(recent)
-    if avg_delta > 2:
-        trend = 'up'
-    elif avg_delta < -2:
-        trend = 'down'
-    else:
-        trend = 'stable'
-    return trend, last_delta
+
+    # Group by student
+    student_deltas = {}
+    for h in history_qs:
+        sid = h.student_id
+        if sid not in student_deltas:
+            student_deltas[sid] = []
+        if len(student_deltas[sid]) < 3:
+            student_deltas[sid].append(h.elo_delta)
+
+    result = {}
+    for sid in student_ids:
+        recent = student_deltas.get(sid, [])
+        if not recent:
+            result[sid] = ('stable', 0)
+            continue
+        last_delta = recent[0]
+        avg_delta = sum(recent) / len(recent)
+        if avg_delta > 2:
+            trend = 'up'
+        elif avg_delta < -2:
+            trend = 'down'
+        else:
+            trend = 'stable'
+        result[sid] = (trend, last_delta)
+    return result
 
 
-def _build_entry(rating, rank, current_student_id=None, improvement=None):
-    trend, last_delta = _trend_and_delta(rating.student)
+def _build_entry(rating, rank, trend_data, current_student_id=None, improvement=None):
+    trend, last_delta = trend_data.get(rating.student_id, ('stable', 0))
     entry = {
         'rank': rank,
         'student_id': str(rating.student_id),
@@ -56,20 +80,21 @@ def leaderboard(request):
 
 
 def _top_rated(current_student, limit):
-    ratings = (
+    ratings = list(
         StudentRating.objects
         .select_related('student')
         .order_by('-elo')[:limit]
     )
     student_id = current_student.id if current_student else None
-    entries = [_build_entry(r, i + 1, student_id) for i, r in enumerate(ratings)]
+    trend_data = _prefetch_trends([r.student_id for r in ratings])
+    entries = [_build_entry(r, i + 1, trend_data, student_id) for i, r in enumerate(ratings)]
 
-    my_entry = _get_my_entry_top_rated(current_student, entries) if current_student else None
+    my_entry = _get_my_entry_top_rated(current_student, entries, trend_data) if current_student else None
 
     return Response({'tab': 'top_rated', 'entries': entries, 'my_entry': my_entry})
 
 
-def _get_my_entry_top_rated(student, entries):
+def _get_my_entry_top_rated(student, entries, trend_data):
     if student is None:
         return None
 
@@ -78,87 +103,104 @@ def _get_my_entry_top_rated(student, entries):
             return e
 
     try:
-        my_rating = StudentRating.objects.get(student=student)
+        my_rating = StudentRating.objects.select_related('student').get(student=student)
     except StudentRating.DoesNotExist:
         return None
 
     rank = StudentRating.objects.filter(elo__gt=my_rating.elo).count() + 1
-    return _build_entry(my_rating, rank, student.id)
+    if my_rating.student_id not in trend_data:
+        trend_data.update(_prefetch_trends([my_rating.student_id]))
+    return _build_entry(my_rating, rank, trend_data, student.id)
 
 
 def _most_improved(current_student, limit):
-    """Biggest total Elo delta over last 5 exams."""
-    students_with_history = Student.objects.filter(
-        elo_history__isnull=False
-    ).distinct()
+    """Biggest total Elo delta over last 5 exams.
 
-    improvements = []
-    for student in students_with_history:
-        recent = list(
-            EloHistory.objects.filter(student=student)
-            .order_by('-created_at')
-            .values_list('elo_delta', flat=True)[:5]
-        )
-        if recent:
-            improvements.append((student, sum(recent)))
+    Uses a single aggregated query instead of per-student loops.
+    """
+    # Get all recent history, ordered by student + recency
+    all_history = (
+        EloHistory.objects
+        .order_by('student_id', '-created_at')
+        .values_list('student_id', 'elo_delta')
+    )
 
-    improvements.sort(key=lambda x: x[1], reverse=True)
-    improvements = improvements[:limit]
+    # Sum last 5 deltas per student in Python (avoids complex window functions)
+    student_deltas = {}
+    student_counts = {}
+    for sid, delta in all_history:
+        student_counts[sid] = student_counts.get(sid, 0) + 1
+        if student_counts[sid] <= 5:
+            student_deltas[sid] = student_deltas.get(sid, 0) + delta
 
+    # Sort by improvement
+    improvements = sorted(student_deltas.items(), key=lambda x: x[1], reverse=True)[:limit]
+    student_ids = [sid for sid, _ in improvements]
+
+    # Batch-fetch ratings and trends
+    ratings_map = {
+        r.student_id: r
+        for r in StudentRating.objects.select_related('student').filter(student_id__in=student_ids)
+    }
+    trend_data = _prefetch_trends(student_ids)
+
+    student_id = current_student.id if current_student else None
     entries = []
-    for rank, (student, delta) in enumerate(improvements, 1):
-        try:
-            rating = student.rating
-        except StudentRating.DoesNotExist:
+    for rank, (sid, delta) in enumerate(improvements, 1):
+        rating = ratings_map.get(sid)
+        if not rating:
             continue
-        entries.append(_build_entry(rating, rank, current_student.id, improvement=delta))
+        entries.append(_build_entry(rating, rank, trend_data, student_id, improvement=delta))
 
     my_entry = None
-    for e in entries:
-        if e['is_current_user']:
-            my_entry = e
-            break
+    if current_student:
+        for e in entries:
+            if e['is_current_user']:
+                my_entry = e
+                break
 
-    if my_entry is None:
-        recent = list(
-            EloHistory.objects.filter(student=current_student)
-            .order_by('-created_at')
-            .values_list('elo_delta', flat=True)[:5]
-        )
-        if recent:
-            my_delta = sum(recent)
-            my_rank = sum(1 for _, d in improvements if d > my_delta) + 1
-            try:
-                my_rating = current_student.rating
-                my_entry = _build_entry(my_rating, my_rank, current_student.id, improvement=my_delta)
-            except StudentRating.DoesNotExist:
-                pass
+        if my_entry is None:
+            my_delta = student_deltas.get(current_student.id)
+            if my_delta is not None:
+                my_rank = sum(1 for _, d in improvements if d > my_delta) + 1
+                try:
+                    my_rating = StudentRating.objects.select_related('student').get(student=current_student)
+                    if current_student.id not in trend_data:
+                        trend_data.update(_prefetch_trends([current_student.id]))
+                    my_entry = _build_entry(my_rating, my_rank, trend_data, current_student.id, improvement=my_delta)
+                except StudentRating.DoesNotExist:
+                    pass
 
     return Response({'tab': 'most_improved', 'entries': entries, 'my_entry': my_entry})
 
 
 def _most_active(current_student, limit):
-    ratings = (
+    ratings = list(
         StudentRating.objects
         .select_related('student')
         .filter(exams_taken__gt=0)
         .order_by('-exams_taken', '-elo')[:limit]
     )
-    entries = [_build_entry(r, i + 1, current_student.id) for i, r in enumerate(ratings)]
+    student_id = current_student.id if current_student else None
+    trend_data = _prefetch_trends([r.student_id for r in ratings])
+    entries = [_build_entry(r, i + 1, trend_data, student_id) for i, r in enumerate(ratings)]
 
     my_entry = None
-    for e in entries:
-        if e['is_current_user']:
-            my_entry = e
-            break
+    if current_student:
+        for e in entries:
+            if e['is_current_user']:
+                my_entry = e
+                break
 
-    if my_entry is None:
-        try:
-            my_rating = StudentRating.objects.get(student=current_student)
-            rank = StudentRating.objects.filter(exams_taken__gt=my_rating.exams_taken).count() + 1
-            my_entry = _build_entry(my_rating, rank, current_student.id)
-        except StudentRating.DoesNotExist:
-            pass
+        if my_entry is None:
+            try:
+                my_rating = StudentRating.objects.select_related('student').get(student=current_student)
+                rank = StudentRating.objects.filter(exams_taken__gt=my_rating.exams_taken).count() + 1
+                if my_rating.student_id not in trend_data:
+                    trend_data.update(_prefetch_trends([my_rating.student_id]))
+                my_entry = _build_entry(my_rating, rank, trend_data, current_student.id)
+            except StudentRating.DoesNotExist:
+                pass
 
     return Response({'tab': 'most_active', 'entries': entries, 'my_entry': my_entry})
 

@@ -9,6 +9,21 @@ class MockExamSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'pdf_file', 'open_at', 'close_at', 'duration', 'created_at']
         read_only_fields = ['id', 'created_at']
 
+    def validate_pdf_file(self, value):
+        max_size = 50 * 1024 * 1024  # 50 MB
+        if value.size > max_size:
+            raise serializers.ValidationError('PDF fayl hajmi 50 MB dan oshmasligi kerak')
+        if not value.name.lower().endswith('.pdf'):
+            raise serializers.ValidationError('Faqat PDF fayllar qabul qilinadi')
+        if hasattr(value, 'content_type') and value.content_type not in ('application/pdf', 'application/octet-stream'):
+            raise serializers.ValidationError('Fayl turi PDF bo\'lishi kerak')
+        # Check PDF magic bytes
+        header = value.read(4)
+        value.seek(0)
+        if header != b'%PDF':
+            raise serializers.ValidationError('Fayl haqiqiy PDF emas')
+        return value
+
 
 class CorrectAnswerSerializer(serializers.ModelSerializer):
     class Meta:
