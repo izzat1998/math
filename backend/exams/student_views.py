@@ -154,16 +154,24 @@ def session_results(request, session_id):
     if session.status != ExamSession.Status.SUBMITTED:
         return Response({'error': 'Imtihon hali topshirilmagan'}, status=status.HTTP_403_FORBIDDEN)
 
+    exam_closed = timezone.now() > session.exam.close_at
+
+    # Hold back all results until the exam window closes
+    if not exam_closed:
+        return Response({
+            'exam_closed': False,
+            'exam_title': session.exam.title,
+            'is_auto_submitted': session.is_auto_submitted,
+            'message': 'Natijalar imtihon yopilgandan keyin e\'lon qilinadi',
+        })
+
     score = compute_score(session)
     answers = StudentAnswer.objects.filter(session=session).order_by('question_number', 'sub_part')
 
-    exam_closed = timezone.now() > session.exam.close_at
-    correct_answers = {}
-    if exam_closed:
-        correct_answers = {
-            (ca.question_number, ca.sub_part): ca.correct_answer
-            for ca in CorrectAnswer.objects.filter(exam=session.exam)
-        }
+    correct_answers = {
+        (ca.question_number, ca.sub_part): ca.correct_answer
+        for ca in CorrectAnswer.objects.filter(exam=session.exam)
+    }
 
     breakdown = [
         {
@@ -171,7 +179,7 @@ def session_results(request, session_id):
             'sub_part': a.sub_part,
             'is_correct': a.is_correct,
             'student_answer': a.answer,
-            'correct_answer': correct_answers.get((a.question_number, a.sub_part)) if exam_closed else None,
+            'correct_answer': correct_answers.get((a.question_number, a.sub_part)),
         }
         for a in answers
     ]

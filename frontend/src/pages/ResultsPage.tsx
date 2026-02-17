@@ -134,6 +134,49 @@ export default function ResultsPage() {
     return <LoadingSpinner fullScreen label="Natijalar yuklanmoqda..." />
   }
 
+  // Exam still open — show waiting screen
+  if (!results.exam_closed) {
+    return (
+      <div className="min-h-screen-dvh bg-slate-50 bg-noise flex flex-col items-center justify-center px-4">
+        <div className="bg-white rounded-3xl shadow-xl border border-slate-200/60 p-8 max-w-sm w-full text-center">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary-50 flex items-center justify-center">
+            <svg className="w-8 h-8 text-primary-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-2">
+            Imtihon davom etmoqda
+          </h2>
+          <p className="text-sm text-slate-500 mb-4">
+            {results.message || "Natijalar imtihon yopilgandan keyin e'lon qilinadi"}
+          </p>
+          {results.exam_title && (
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              {results.exam_title}
+            </p>
+          )}
+          {results.is_auto_submitted && (
+            <div className="mt-4 flex items-center justify-center gap-2 p-2 bg-warning-50 border border-warning-200/50 rounded-xl">
+              <span className="text-warning-500 text-sm">⚡</span>
+              <p className="text-[12px] text-warning-700 font-medium">Vaqt tugadi — avtomatik topshirildi</p>
+            </div>
+          )}
+          {!isTelegram && (
+            <Link
+              to="/"
+              className="mt-5 inline-flex items-center gap-1.5 text-sm text-primary-600 font-semibold hover:text-primary-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+              Bosh sahifaga qaytish
+            </Link>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const correctCount = results.breakdown.filter((b) => b.is_correct).length
   const wrongCount = results.breakdown.length - correctCount
   const mcqAnswered = results.breakdown.filter((b) => b.question_number <= 35).length

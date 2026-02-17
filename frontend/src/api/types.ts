@@ -39,6 +39,7 @@ export interface ExamResults {
   exam_title: string
   breakdown: AnswerBreakdown[]
   elo: EloChange | null
+  message?: string
 }
 
 export interface LeaderboardEntry {
