@@ -7,9 +7,7 @@ interface AuthContextType {
   studentId: string | null
   fullName: string | null
   isAuthenticated: boolean
-  loginWithInviteCode: (code: string, fullName: string) => Promise<AuthResponse>
   loginWithTelegram: (initData: string) => Promise<AuthResponse>
-  loginWithGoogle: (credential: string) => Promise<AuthResponse>
   logout: () => void
 }
 
@@ -32,20 +30,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setFullName(data.full_name)
   }
 
-  const loginWithInviteCode = async (code: string, fullName: string) => {
-    const { data } = await api.post<AuthResponse>('/auth/invite-code/', { code, full_name: fullName })
-    setAuth(data)
-    return data
-  }
-
   const loginWithTelegram = async (initData: string) => {
     const { data } = await api.post<AuthResponse>('/auth/telegram/', { initData })
-    setAuth(data)
-    return data
-  }
-
-  const loginWithGoogle = async (credential: string) => {
-    const { data } = await api.post<AuthResponse>('/auth/google/', { credential })
     setAuth(data)
     return data
   }
@@ -69,9 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         studentId,
         fullName,
         isAuthenticated: !!studentId,
-        loginWithInviteCode,
         loginWithTelegram,
-        loginWithGoogle,
         logout,
       }}
     >

@@ -5,8 +5,6 @@ import logging
 from urllib.parse import parse_qs
 
 from django.conf import settings
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
@@ -97,16 +95,13 @@ def auth_telegram(request):
 
 
 @api_view(['POST'])
-@authentication_classes([])
-@permission_classes([AllowAny])
-@throttle_classes([AuthRateThrottle])
-def auth_invite_code(request):
+@authentication_classes([StudentJWTAuthentication])
+@permission_classes([IsStudent])
+def join_exam_by_invite_code(request):
     code = request.data.get('code')
-    full_name = request.data.get('full_name')
-
-    if not code or not full_name:
+    if not code:
         return Response(
-            {"error": "Kod va to'liq ism talab qilinadi"},
+            {"error": "Kod talab qilinadi"},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -123,62 +118,13 @@ def auth_invite_code(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    student = Student.objects.create(full_name=full_name)
+    student = request.user
     if not invite.reusable:
         invite.is_used = True
         invite.used_by = student
         invite.save()
 
-    return Response({
-        **_get_tokens_for_student(student),
-        'exam_id': str(invite.exam.id),
-    })
-
-
-@api_view(['POST'])
-@authentication_classes([])
-@permission_classes([AllowAny])
-@throttle_classes([AuthRateThrottle])
-def auth_google(request):
-    credential = request.data.get('credential')
-    if not credential:
-        return Response(
-            {'error': 'Google credential talab qilinadi'},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        id_info = id_token.verify_oauth2_token(
-            credential,
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID,
-        )
-    except ValueError:
-        logger.warning('Google OAuth token verification failed')
-        return Response(
-            {'error': 'Google token yaroqsiz'},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    google_id = id_info['sub']
-    email = id_info.get('email', '')
-    name = id_info.get('name', '')
-
-    student = Student.objects.filter(google_id=google_id).first()
-    if not student and email:
-        student = Student.objects.filter(email=email).first()
-        if student:
-            student.google_id = google_id
-            student.save(update_fields=['google_id'])
-
-    if not student:
-        student = Student.objects.create(
-            full_name=name,
-            email=email or None,
-            google_id=google_id,
-        )
-
-    return Response(_get_tokens_for_student(student))
+    return Response({'exam_id': str(invite.exam.id)})
 
 
 @api_view(['POST'])

@@ -129,7 +129,6 @@ SIMPLE_JWT = {
 }
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 
 _redis_host = os.environ.get('REDIS_HOST', 'localhost')
 _redis_port = os.environ.get('REDIS_PORT', '6379')

@@ -4,7 +4,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { useTelegram } from './hooks/useTelegram'
-import { GoogleOAuthProvider } from '@react-oauth/google'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoadingSpinner from './components/LoadingSpinner'
 import LoginPage from './pages/LoginPage'
@@ -65,7 +64,6 @@ function TelegramGate({ children }: { children: ReactNode }) {
 function App() {
   return (
     <ErrorBoundary>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
       <AuthProvider>
         <BrowserRouter>
           <ToastProvider>
@@ -90,7 +88,6 @@ function App() {
           </ToastProvider>
         </BrowserRouter>
       </AuthProvider>
-      </GoogleOAuthProvider>
     </ErrorBoundary>
   )
 }

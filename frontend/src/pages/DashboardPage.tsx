@@ -259,7 +259,6 @@ export default function DashboardPage() {
                       try {
                         const { data } = await api.post('/auth/invite-code/', {
                           code: inviteCode,
-                          full_name: fullName || 'Talaba',
                         })
                         if (data.exam_id) {
                           navigate(`/exam/${data.exam_id}`)
