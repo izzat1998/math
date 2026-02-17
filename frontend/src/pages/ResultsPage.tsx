@@ -101,9 +101,6 @@ function SubPartDetail({ label, part }: { label: string; part: AnswerBreakdown |
   return (
     <div className="flex gap-4 text-slate-500">
       <span>{label}) Siz: <span className="font-semibold text-slate-700">{part.student_answer}</span></span>
-      {part.correct_answer && (
-        <span>Javob: <span className="font-semibold text-success-600">{part.correct_answer}</span></span>
-      )}
     </div>
   )
 }
@@ -277,9 +274,6 @@ export default function ResultsPage() {
                   {isExpanded && entry && (
                     <div className="mt-1 rounded-xl bg-slate-50 border border-slate-200 px-2 py-1.5 text-[10px] text-slate-500 space-y-0.5 animate-scale-in">
                       <div>Siz: <span className="font-bold text-slate-700">{entry.student_answer}</span></div>
-                      {entry.correct_answer && (
-                        <div>Javob: <span className="font-bold text-success-600">{entry.correct_answer}</span></div>
-                      )}
                     </div>
                   )}
                 </div>

@@ -168,18 +168,12 @@ def session_results(request, session_id):
     score = compute_score(session)
     answers = StudentAnswer.objects.filter(session=session).order_by('question_number', 'sub_part')
 
-    correct_answers = {
-        (ca.question_number, ca.sub_part): ca.correct_answer
-        for ca in CorrectAnswer.objects.filter(exam=session.exam)
-    }
-
     breakdown = [
         {
             'question_number': a.question_number,
             'sub_part': a.sub_part,
             'is_correct': a.is_correct,
             'student_answer': a.answer,
-            'correct_answer': correct_answers.get((a.question_number, a.sub_part)),
         }
         for a in answers
     ]
