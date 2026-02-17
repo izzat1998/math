@@ -3,7 +3,9 @@ import { useParams } from 'react-router-dom'
 import adminApi from './adminApi'
 import AdminLayout from '../../components/AdminLayout'
 
-const MCQ_OPTIONS = ['A', 'B', 'C', 'D']
+const MCQ_OPTIONS_4 = ['A', 'B', 'C', 'D']
+const MCQ_OPTIONS_6 = ['A', 'B', 'C', 'D', 'E', 'F']
+const SIX_OPTION_QUESTIONS = new Set([33, 34, 35])
 const MCQ_COUNT = 35
 const FREE_START = 36
 const FREE_END = 45
@@ -86,27 +88,30 @@ export default function ExamAnswersPage() {
             Test savollari (1-{MCQ_COUNT})
           </h3>
           <div className="space-y-2 mb-6">
-            {Array.from({ length: MCQ_COUNT }, (_, i) => i + 1).map((q) => (
-              <div key={q} className="flex items-center gap-2">
-                <span className="w-7 text-xs font-medium text-slate-400 text-right tabular-nums">{q}</span>
-                <div className="flex gap-1">
-                  {MCQ_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setAnswer(q, null, opt)}
-                      disabled={saving}
-                      className={`w-10 h-10 rounded-md text-xs font-semibold border transition-all ${
-                        answers[`${q}`] === opt
-                          ? 'bg-accent-500 text-white border-accent-500 shadow-sm'
-                          : 'bg-white text-slate-600 border-slate-200 hover:border-accent-300 hover:bg-accent-50'
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+            {Array.from({ length: MCQ_COUNT }, (_, i) => i + 1).map((q) => {
+              const options = SIX_OPTION_QUESTIONS.has(q) ? MCQ_OPTIONS_6 : MCQ_OPTIONS_4
+              return (
+                <div key={q} className="flex items-center gap-2">
+                  <span className="w-7 text-xs font-medium text-slate-400 text-right tabular-nums">{q}</span>
+                  <div className="flex gap-1">
+                    {options.map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setAnswer(q, null, opt)}
+                        disabled={saving}
+                        className={`${options.length === 6 ? 'w-8 h-8 text-[10px]' : 'w-10 h-10 text-xs'} rounded-md font-semibold border transition-all ${
+                          answers[`${q}`] === opt
+                            ? 'bg-accent-500 text-white border-accent-500 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-accent-300 hover:bg-accent-50'
+                        } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Free text section */}

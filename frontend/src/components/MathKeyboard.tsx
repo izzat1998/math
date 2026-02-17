@@ -96,7 +96,7 @@ function KeyButton({
   keyDef: KeyDef
   onPress: (key: KeyDef) => void
 }) {
-  const handle = (e: React.PointerEvent) => {
+  const handle = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault()
     onPress(keyDef)
   }
@@ -106,7 +106,8 @@ function KeyButton({
 
   return (
     <button
-      onPointerDown={handle}
+      onMouseDown={handle}
+      onTouchStart={handle}
       aria-label={keyDef.ariaLabel || keyDef.label}
       className={`
         flex items-center justify-center rounded-lg text-center select-none

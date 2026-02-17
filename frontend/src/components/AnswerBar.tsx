@@ -30,6 +30,7 @@ export default function AnswerBar({
 }: AnswerBarProps) {
   const isMcq = currentQuestion <= MCQ_COUNT
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
+  const lastFocusedRef = useRef<string | null>(null)
   const [showGrid, setShowGrid] = useState(false)
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const insertSymbol = useCursorInsert(inputRefs, answers, onAnswer)
@@ -62,35 +63,43 @@ export default function AnswerBar({
 
   const handleSymbol = useCallback(
     (text: string) => {
-      if (focusedInput) insertSymbol(focusedInput, text)
+      const target = focusedInput || lastFocusedRef.current
+      if (target) {
+        insertSymbol(target, text)
+        // Re-focus the input in case blur happened
+        const el = inputRefs.current.get(target)
+        if (el) el.focus()
+      }
     },
     [focusedInput, insertSymbol]
   )
 
   const handleBackspace = useCallback(() => {
-    if (!focusedInput) return
-    const el = inputRefs.current.get(focusedInput)
+    const target = focusedInput || lastFocusedRef.current
+    if (!target) return
+    const el = inputRefs.current.get(target)
     if (!el) return
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? start
-    const current = answers[focusedInput] || ''
+    const current = answers[target] || ''
     if (start === end && start > 0) {
       const next = current.slice(0, start - 1) + current.slice(end)
-      const [qStr, sub] = focusedInput.split('_')
+      const [qStr, sub] = target.split('_')
       onAnswer(Number(qStr), sub, next)
       const pos = start - 1
       requestAnimationFrame(() => el.setSelectionRange(pos, pos))
     } else if (start !== end) {
       const next = current.slice(0, start) + current.slice(end)
-      const [qStr, sub] = focusedInput.split('_')
+      const [qStr, sub] = target.split('_')
       onAnswer(Number(qStr), sub, next)
       requestAnimationFrame(() => el.setSelectionRange(start, start))
     }
   }, [focusedInput, answers, onAnswer])
 
   const handleCursorMove = useCallback((direction: 'left' | 'right') => {
-    if (!focusedInput) return
-    const el = inputRefs.current.get(focusedInput)
+    const target = focusedInput || lastFocusedRef.current
+    if (!target) return
+    const el = inputRefs.current.get(target)
     if (!el) return
     const pos = el.selectionStart ?? 0
     const next = direction === 'left' ? Math.max(0, pos - 1) : Math.min(el.value.length, pos + 1)
@@ -98,8 +107,9 @@ export default function AnswerBar({
   }, [focusedInput])
 
   const handleEnter = useCallback(() => {
-    if (!focusedInput) return
-    const [qStr, sub] = focusedInput.split('_')
+    const target = focusedInput || lastFocusedRef.current
+    if (!target) return
+    const [qStr, sub] = target.split('_')
     const q = Number(qStr)
     if (sub === 'a') {
       const nextKey = answerKey(q, 'b')
@@ -242,7 +252,7 @@ export default function AnswerBar({
                   inputMode="none"
                   value={answers[key] || ''}
                   onChange={(e) => onAnswer(currentQuestion, sub, e.target.value)}
-                  onFocus={() => setFocusedInput(key)}
+                  onFocus={() => { setFocusedInput(key); lastFocusedRef.current = key }}
                   onBlur={() => setTimeout(() => setFocusedInput(null), 200)}
                   disabled={disabled}
                   placeholder="Javobni kiriting..."

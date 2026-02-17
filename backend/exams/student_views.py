@@ -215,6 +215,10 @@ def session_results(request, session_id):
 def _normalize_answer(text):
     """Normalize answer text for comparison: strip, lowercase, remove accents."""
     text = text.strip().lower()
+    # Normalize unicode math symbols to their ASCII equivalents
+    text = text.replace('\u2212', '-')  # unicode minus → hyphen-minus
+    text = text.replace('\u00d7', '*')  # multiplication sign → asterisk
+    text = text.replace('\u00f7', '/')  # division sign → slash
     nfkd = unicodedata.normalize('NFKD', text)
     return ''.join(c for c in nfkd if not unicodedata.combining(c))
 
