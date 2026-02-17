@@ -74,7 +74,10 @@ def _build_entry(rating, rank, trend_data, current_student_id=None, improvement=
 @authentication_classes(student_auth)
 @permission_classes([AllowAny])
 def leaderboard(request):
-    limit = min(int(request.query_params.get('limit', 50)), 100)
+    try:
+        limit = min(int(request.query_params.get('limit', 50)), 100)
+    except (TypeError, ValueError):
+        limit = 50
     current_student = request.user if request.user and hasattr(request.user, 'id') and not getattr(request.user, 'is_anonymous', True) else None
     return _top_rated(current_student, limit)
 

@@ -74,8 +74,11 @@ api.interceptors.response.use(
       return api(originalRequest)
     } catch (refreshError) {
       processQueue(refreshError, null)
-      // Refresh failed — clear auth and redirect to login
-      localStorage.clear()
+      // Refresh failed — clear student auth tokens only
+      localStorage.removeItem('access_token')
+      localStorage.removeItem('refresh_token')
+      localStorage.removeItem('student_id')
+      localStorage.removeItem('full_name')
       window.location.href = '/'
       return Promise.reject(refreshError)
     } finally {

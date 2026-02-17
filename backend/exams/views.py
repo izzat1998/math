@@ -71,11 +71,12 @@ def admin_exam_results(request, exam_id):
         ExamSession.objects
         .filter(exam=exam, status=ExamSession.Status.SUBMITTED)
         .select_related('student')
+        .prefetch_related('answers')
     )
 
     results = []
     for session in sessions:
-        score = compute_score(session)
+        score = compute_score(session, prefetched_answers=list(session.answers.all()))
         results.append({
             'student_id': session.student.id,
             'student_name': session.student.full_name,

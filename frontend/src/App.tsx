@@ -30,10 +30,24 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: ReactNode }) {
-  const hasAdminToken = !!localStorage.getItem('admin_access_token')
-  if (!hasAdminToken) {
-    return <Navigate to="/admin" replace />
-  }
+  const [status, setStatus] = useState<'loading' | 'ok' | 'denied'>('loading')
+
+  useEffect(() => {
+    const token = localStorage.getItem('admin_access_token')
+    if (!token) {
+      setStatus('denied')
+      return
+    }
+    // Validate token by hitting a lightweight admin endpoint
+    import('./pages/admin/adminApi').then(({ default: adminApi }) => {
+      adminApi.get('/admin/exams/')
+        .then(() => setStatus('ok'))
+        .catch(() => setStatus('denied'))
+    })
+  }, [])
+
+  if (status === 'loading') return <LoadingSpinner fullScreen label="" />
+  if (status === 'denied') return <Navigate to="/admin" replace />
   return <>{children}</>
 }
 

@@ -9,17 +9,23 @@ EXERCISES_TOTAL = 45
 POINTS_TOTAL = 55
 
 
-def compute_score(session):
+def compute_score(session, prefetched_answers=None):
     """Compute exercises_correct and points for a submitted session.
 
     Returns a dict with exercises_correct, exercises_total, points, points_total.
-    """
-    answers = StudentAnswer.objects.filter(session=session, is_correct=True)
-    points = answers.count()
 
-    correct_keys = set(
-        answers.values_list('question_number', 'sub_part')
-    )
+    If *prefetched_answers* is provided (e.g. from prefetch_related), it will
+    be used instead of issuing a new query — avoids N+1 in list views.
+    """
+    if prefetched_answers is not None:
+        correct = [a for a in prefetched_answers if a.is_correct]
+        points = len(correct)
+        correct_keys = {(a.question_number, a.sub_part) for a in correct}
+    else:
+        answers = StudentAnswer.objects.filter(session=session, is_correct=True)
+        points = answers.count()
+        correct_keys = set(answers.values_list('question_number', 'sub_part'))
+
     correct_question_numbers = {q for q, _ in correct_keys}
 
     exercises_correct = 0

@@ -11,10 +11,19 @@ pull:
 db-backup:
 	@mkdir -p backend/backups
 	@echo "Backing up database..."
-	pg_dump -h localhost -U $$(cd backend && grep DB_USER .env | cut -d= -f2) \
+	@BACKUP_FILE=backend/backups/pre_deploy_$$(date +%Y%m%d_%H%M%S).sql; \
+	PGPASSWORD=$$(cd backend && grep DB_PASSWORD .env | cut -d= -f2) \
+	pg_dump -h localhost \
+		-U $$(cd backend && grep DB_USER .env | cut -d= -f2) \
 		$$(cd backend && grep DB_NAME .env | cut -d= -f2) \
-		> backend/backups/pre_deploy_$$(date +%Y%m%d_%H%M%S).sql 2>/dev/null || \
-		echo "Warning: db backup failed (non-fatal)"
+		> "$$BACKUP_FILE" 2>&1; \
+	if [ $$? -ne 0 ] || [ ! -s "$$BACKUP_FILE" ]; then \
+		echo "ERROR: Database backup failed! Check credentials and pg_dump output:"; \
+		cat "$$BACKUP_FILE"; \
+		exit 1; \
+	else \
+		echo "Backup saved: $$BACKUP_FILE ($$(du -h "$$BACKUP_FILE" | cut -f1))"; \
+	fi
 
 # Backend: install deps, run migrations, collect static files
 backend:

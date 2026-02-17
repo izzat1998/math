@@ -5,6 +5,7 @@ import logging
 from urllib.parse import parse_qs
 
 from django.conf import settings
+from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
@@ -105,24 +106,25 @@ def join_exam_by_invite_code(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    try:
-        invite = InviteCode.objects.get(code=code)
-        if invite.is_used and not invite.reusable:
+    with transaction.atomic():
+        try:
+            invite = InviteCode.objects.select_for_update().get(code=code)
+            if invite.is_used and not invite.reusable:
+                return Response(
+                    {"error": "Taklif kodi allaqachon ishlatilgan"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        except InviteCode.DoesNotExist:
             return Response(
-                {"error": "Taklif kodi allaqachon ishlatilgan"},
+                {"error": "Taklif kodi noto'g'ri yoki ishlatilgan"},
                 status=status.HTTP_404_NOT_FOUND,
             )
-    except InviteCode.DoesNotExist:
-        return Response(
-            {"error": "Taklif kodi noto'g'ri yoki ishlatilgan"},
-            status=status.HTTP_404_NOT_FOUND,
-        )
 
-    student = request.user
-    if not invite.reusable:
-        invite.is_used = True
-        invite.used_by = student
-        invite.save()
+        student = request.user
+        if not invite.reusable:
+            invite.is_used = True
+            invite.used_by = student
+            invite.save()
 
     return Response({'exam_id': str(invite.exam.id)})
 
