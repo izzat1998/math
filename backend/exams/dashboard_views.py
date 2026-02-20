@@ -1,10 +1,11 @@
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from .models import (
     StudentRating, StudentStreak, StudentAchievement,
-    Achievement, MockExam, ExamSession, StudentAnswer, EloHistory,
+    Achievement, MockExam, ExamSession, EloHistory,
 )
 from .permissions import StudentJWTAuthentication, IsStudent
 
@@ -88,22 +89,26 @@ def _get_exam_history(student):
     sessions = ExamSession.objects.filter(
         student=student,
         status='submitted',
-    ).select_related('exam').order_by('-submitted_at')
+    ).select_related('exam').annotate(
+        correct_count=Count('answers', filter=Q(answers__is_correct=True))
+    ).order_by('-submitted_at')
+
+    # Batch-fetch EloHistory for all sessions to avoid N+1 queries
+    session_ids = [s.id for s in sessions]
+    elo_entries = {
+        e.session_id: e
+        for e in EloHistory.objects.filter(session_id__in=session_ids)
+    }
 
     history = []
     for session in sessions:
-        correct = StudentAnswer.objects.filter(
-            session=session, is_correct=True
-        ).count()
-
-        elo_entry = EloHistory.objects.filter(session=session).first()
-
+        elo_entry = elo_entries.get(session.id)
         history.append({
             'session_id': str(session.id),
             'exam_id': str(session.exam.id),
             'exam_title': session.exam.title,
             'submitted_at': session.submitted_at.isoformat() if session.submitted_at else None,
-            'exercises_correct': correct,
+            'exercises_correct': session.correct_count,
             'exercises_total': 45,
             'rasch_scaled': elo_entry.rasch_after if elo_entry else None,
             'elo_delta': elo_entry.elo_delta if elo_entry else None,

@@ -110,7 +110,10 @@ def save_answer(request, session_id):
 
     with transaction.atomic():
         session = get_object_or_404(
-            ExamSession.objects.select_for_update(),
+            ExamSession.objects.select_for_update().select_related('exam').only(
+                'id', 'status', 'started_at', 'student_id', 'is_auto_submitted',
+                'exam__duration', 'exam__scheduled_end',
+            ),
             id=session_id, student=request.user,
         )
 
@@ -156,7 +159,10 @@ def submit_exam(request, session_id):
 @authentication_classes(student_auth)
 @permission_classes(student_perm)
 def session_results(request, session_id):
-    session = get_object_or_404(ExamSession, id=session_id, student=request.user)
+    session = get_object_or_404(
+        ExamSession.objects.select_related('exam'),
+        id=session_id, student=request.user,
+    )
 
     if session.status != ExamSession.Status.SUBMITTED:
         return Response({'error': 'Imtihon hali topshirilmagan'}, status=status.HTTP_403_FORBIDDEN)
@@ -321,7 +327,7 @@ def submit_session_safe(session_id, auto=False):
     """Thread-safe submission entry point for Celery tasks."""
     with transaction.atomic():
         try:
-            session = ExamSession.objects.select_for_update().get(id=session_id)
+            session = ExamSession.objects.select_for_update().select_related('exam').get(id=session_id)
         except ExamSession.DoesNotExist:
             return
         _submit_session(session, auto=auto)
