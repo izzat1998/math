@@ -1,3 +1,5 @@
+import unicodedata
+
 import numpy as np
 
 from .models import StudentAnswer, CorrectAnswer, ItemDifficulty
@@ -7,6 +9,16 @@ SINGLE_QUESTIONS = range(1, 36)
 PAIRED_QUESTIONS = range(36, 46)
 EXERCISES_TOTAL = 45
 POINTS_TOTAL = 55
+
+
+def normalize_answer(text):
+    """Normalize answer text for comparison: strip, lowercase, remove accents, normalize math symbols."""
+    text = text.strip().lower()
+    text = text.replace('\u2212', '-')  # unicode minus → hyphen-minus
+    text = text.replace('\u00d7', '*')  # multiplication sign → asterisk
+    text = text.replace('\u00f7', '/')  # division sign → slash
+    nfkd = unicodedata.normalize('NFKD', text)
+    return ''.join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def compute_score(session, prefetched_answers=None):
@@ -25,7 +37,6 @@ def compute_score(session, prefetched_answers=None):
         answers = StudentAnswer.objects.filter(session=session, is_correct=True)
         points = answers.count()
         correct_keys = set(answers.values_list('question_number', 'sub_part'))
-
     correct_question_numbers = {q for q, _ in correct_keys}
 
     exercises_correct = 0

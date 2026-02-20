@@ -1,5 +1,4 @@
-from django.db.models import Sum, F, Window
-from django.db.models.functions import RowNumber
+from django.db.models import Sum
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -117,28 +116,20 @@ def _get_my_entry_top_rated(student, entries, trend_data):
 
 
 def _most_improved(current_student, limit):
-    """Biggest total Elo delta over last 5 exams.
+    """Biggest total Elo delta over recent exams.
 
-    Uses a single aggregated query instead of per-student loops.
+    Uses DB-level aggregation instead of loading the entire EloHistory table.
     """
-    # Get all recent history, ordered by student + recency
-    all_history = (
+    # Aggregate total elo_delta per student at the DB level
+    improvements_qs = (
         EloHistory.objects
-        .order_by('student_id', '-created_at')
-        .values_list('student_id', 'elo_delta')
+        .values('student_id')
+        .annotate(total_delta=Sum('elo_delta'))
+        .order_by('-total_delta')[:limit]
     )
 
-    # Sum last 5 deltas per student in Python (avoids complex window functions)
-    student_deltas = {}
-    student_counts = {}
-    for sid, delta in all_history:
-        student_counts[sid] = student_counts.get(sid, 0) + 1
-        if student_counts[sid] <= 5:
-            student_deltas[sid] = student_deltas.get(sid, 0) + delta
-
-    # Sort by improvement
-    improvements = sorted(student_deltas.items(), key=lambda x: x[1], reverse=True)[:limit]
-    student_ids = [sid for sid, _ in improvements]
+    student_ids = [row['student_id'] for row in improvements_qs]
+    delta_map = {row['student_id']: row['total_delta'] for row in improvements_qs}
 
     # Batch-fetch ratings and trends
     ratings_map = {
@@ -149,11 +140,11 @@ def _most_improved(current_student, limit):
 
     student_id = current_student.id if current_student else None
     entries = []
-    for rank, (sid, delta) in enumerate(improvements, 1):
+    for rank, sid in enumerate(student_ids, 1):
         rating = ratings_map.get(sid)
         if not rating:
             continue
-        entries.append(_build_entry(rating, rank, trend_data, student_id, improvement=delta))
+        entries.append(_build_entry(rating, rank, trend_data, student_id, improvement=delta_map[sid]))
 
     my_entry = None
     if current_student:
@@ -163,9 +154,16 @@ def _most_improved(current_student, limit):
                 break
 
         if my_entry is None:
-            my_delta = student_deltas.get(current_student.id)
+            my_delta_qs = EloHistory.objects.filter(student=current_student).aggregate(total_delta=Sum('elo_delta'))
+            my_delta = my_delta_qs['total_delta']
             if my_delta is not None:
-                my_rank = sum(1 for _, d in improvements if d > my_delta) + 1
+                my_rank = (
+                    EloHistory.objects
+                    .values('student_id')
+                    .annotate(total_delta=Sum('elo_delta'))
+                    .filter(total_delta__gt=my_delta)
+                    .count()
+                ) + 1
                 try:
                     my_rating = StudentRating.objects.select_related('student').get(student=current_student)
                     if current_student.id not in trend_data:

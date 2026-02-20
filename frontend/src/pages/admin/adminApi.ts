@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const adminApi = axios.create({
-  baseURL: '/api',
+  baseURL: import.meta.env.PROD ? 'https://api.math.xlog.uz/api' : '/api',
 })
 
 adminApi.interceptors.request.use((config) => {
@@ -29,6 +29,8 @@ function processQueue(error: unknown, token: string | null) {
 adminApi.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (!error.config) return Promise.reject(error)
+
     const originalRequest = error.config
 
     if (error.response?.status !== 401 || originalRequest._retry) {
@@ -61,7 +63,7 @@ adminApi.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const { data } = await axios.post('/api/token/refresh/', {
+      const { data } = await axios.post(`${adminApi.defaults.baseURL}/token/refresh/`, {
         refresh: refreshToken,
       })
       const newToken = data.access

@@ -1,5 +1,3 @@
-import unicodedata
-
 from django.db import transaction
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -12,7 +10,7 @@ from rest_framework.response import Response
 from .elo import update_elo_after_submission
 from .models import MockExam, ExamSession, StudentAnswer, CorrectAnswer, EloHistory
 from .permissions import StudentJWTAuthentication, IsStudent
-from .scoring import compute_score, compute_rasch_score
+from .scoring import compute_score, compute_rasch_score, normalize_answer
 from .serializers import MockExamSerializer
 
 student_auth = [StudentJWTAuthentication]
@@ -48,9 +46,22 @@ def exam_detail(request, exam_id):
 @permission_classes(student_perm)
 def exam_pdf(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
+
+    # Only serve the PDF if the exam is currently open
+    now = timezone.now()
+    if not (exam.open_at <= now <= exam.close_at):
+        return Response({'error': 'Imtihon hozirda ochiq emas'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Require an active (in-progress) or submitted session for this student
+    if not ExamSession.objects.filter(student=request.user, exam=exam).exists():
+        return Response({'error': 'Avval imtihonni boshlang'}, status=status.HTTP_403_FORBIDDEN)
+
     if not exam.pdf_file:
         return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
-    f = exam.pdf_file.open()
+    try:
+        f = exam.pdf_file.open()
+    except FileNotFoundError:
+        return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
     return FileResponse(f, content_type='application/pdf')
 
 
@@ -207,17 +218,6 @@ def session_results(request, session_id):
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _normalize_answer(text):
-    """Normalize answer text for comparison: strip, lowercase, remove accents."""
-    text = text.strip().lower()
-    # Normalize unicode math symbols to their ASCII equivalents
-    text = text.replace('\u2212', '-')  # unicode minus → hyphen-minus
-    text = text.replace('\u00d7', '*')  # multiplication sign → asterisk
-    text = text.replace('\u00f7', '/')  # division sign → slash
-    nfkd = unicodedata.normalize('NFKD', text)
-    return ''.join(c for c in nfkd if not unicodedata.combining(c))
-
-
 def _session_payload(session, exam):
     return {
         'session_id': str(session.id),
@@ -285,7 +285,7 @@ def _submit_session(session, auto=False):
     for answer in student_answers:
         key = (answer.question_number, answer.sub_part)
         expected = correct_answers.get(key, '')
-        answer.is_correct = _normalize_answer(answer.answer) == _normalize_answer(expected)
+        answer.is_correct = normalize_answer(answer.answer) == normalize_answer(expected)
 
     StudentAnswer.objects.bulk_update(student_answers, ['is_correct'], batch_size=100)
 

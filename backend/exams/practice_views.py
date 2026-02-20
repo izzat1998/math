@@ -10,6 +10,7 @@ from rest_framework.response import Response
 
 from .models import Question, PracticeSession
 from .permissions import StudentJWTAuthentication, IsStudent
+from .scoring import normalize_answer
 from .serializers import PracticeSessionSerializer, QuestionResultSerializer
 
 student_auth = [StudentJWTAuthentication]
@@ -100,6 +101,14 @@ def practice_answer(request, session_id):
     if not question_id or answer is None:
         return Response({'error': 'question_id va answer talab qilinadi'}, status=status.HTTP_400_BAD_REQUEST)
 
+    if not isinstance(answer, str) or len(answer) > 500:
+        return Response({'error': 'Javob 500 belgidan oshmasligi kerak'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Validate that question_id belongs to this session's question set
+    valid_ids = set(str(qid) for qid in session.questions.values_list('id', flat=True))
+    if str(question_id) not in valid_ids:
+        return Response({'error': "Savol bu sessiyaga tegishli emas"}, status=status.HTTP_400_BAD_REQUEST)
+
     answers = session.answers or {}
     answers[str(question_id)] = answer
     session.answers = answers
@@ -136,7 +145,7 @@ def practice_results(request, session_id):
     breakdown = []
     for q in questions:
         student_answer = answers.get(str(q.id), '')
-        is_correct = student_answer.strip().lower() == q.correct_answer.strip().lower()
+        is_correct = normalize_answer(student_answer) == normalize_answer(q.correct_answer)
         breakdown.append({
             'question': QuestionResultSerializer(q).data,
             'student_answer': student_answer,
@@ -166,7 +175,7 @@ def _submit_practice(session):
         correct = 0
         for qid, q in questions.items():
             student_answer = answers.get(qid, '')
-            if student_answer.strip().lower() == q.correct_answer.strip().lower():
+            if normalize_answer(student_answer) == normalize_answer(q.correct_answer):
                 correct += 1
         session.score = correct
         session.status = PracticeSession.Status.SUBMITTED

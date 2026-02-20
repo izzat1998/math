@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
@@ -6,20 +6,22 @@ import { ToastProvider } from './context/ToastContext'
 import { useTelegram } from './hooks/useTelegram'
 import ErrorBoundary from './components/ErrorBoundary'
 import LoadingSpinner from './components/LoadingSpinner'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import ExamPage from './pages/ExamPage'
-import ResultsPage from './pages/ResultsPage'
-import PracticeExamPage from './pages/PracticeExamPage'
-import PracticeResultsPage from './pages/PracticeResultsPage'
-import LobbyPage from './pages/LobbyPage'
-import AdminLoginPage from './pages/admin/AdminLoginPage'
-import AdminDashboard from './pages/admin/AdminDashboard'
-import CreateExamPage from './pages/admin/CreateExamPage'
-import ExamAnswersPage from './pages/admin/ExamAnswersPage'
-import ExamResultsPage from './pages/admin/ExamResultsPage'
-import InviteCodesPage from './pages/admin/InviteCodesPage'
-import LeaderboardPage from './pages/LeaderboardPage'
+
+// Lazy-loaded pages for code splitting
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ExamPage = lazy(() => import('./pages/ExamPage'))
+const ResultsPage = lazy(() => import('./pages/ResultsPage'))
+const PracticeExamPage = lazy(() => import('./pages/PracticeExamPage'))
+const PracticeResultsPage = lazy(() => import('./pages/PracticeResultsPage'))
+const LobbyPage = lazy(() => import('./pages/LobbyPage'))
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'))
+const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'))
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const CreateExamPage = lazy(() => import('./pages/admin/CreateExamPage'))
+const ExamAnswersPage = lazy(() => import('./pages/admin/ExamAnswersPage'))
+const ExamResultsPage = lazy(() => import('./pages/admin/ExamResultsPage'))
+const InviteCodesPage = lazy(() => import('./pages/admin/InviteCodesPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -97,22 +99,24 @@ function App() {
         <BrowserRouter>
           <ToastProvider>
             <TelegramGate>
-              <Routes>
-                <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/practice/:id" element={<ProtectedRoute><PracticeExamPage /></ProtectedRoute>} />
-                <Route path="/practice/:id/results" element={<ProtectedRoute><PracticeResultsPage /></ProtectedRoute>} />
-                <Route path="/exam/:examId/lobby" element={<ProtectedRoute><LobbyPage /></ProtectedRoute>} />
-                <Route path="/exam/:examId" element={<ProtectedRoute><ExamPage /></ProtectedRoute>} />
-                <Route path="/results/:sessionId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
-                <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
-                <Route path="/admin" element={<AdminLoginPage />} />
-                <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-                <Route path="/admin/exams/create" element={<AdminRoute><CreateExamPage /></AdminRoute>} />
-                <Route path="/admin/exams/:examId/answers" element={<AdminRoute><ExamAnswersPage /></AdminRoute>} />
-                <Route path="/admin/exams/:examId/results" element={<AdminRoute><ExamResultsPage /></AdminRoute>} />
-                <Route path="/admin/exams/:examId/codes" element={<AdminRoute><InviteCodesPage /></AdminRoute>} />
-              </Routes>
+              <Suspense fallback={<LoadingSpinner fullScreen />}>
+                <Routes>
+                  <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/practice/:id" element={<ProtectedRoute><PracticeExamPage /></ProtectedRoute>} />
+                  <Route path="/practice/:id/results" element={<ProtectedRoute><PracticeResultsPage /></ProtectedRoute>} />
+                  <Route path="/exam/:examId/lobby" element={<ProtectedRoute><LobbyPage /></ProtectedRoute>} />
+                  <Route path="/exam/:examId" element={<ProtectedRoute><ExamPage /></ProtectedRoute>} />
+                  <Route path="/results/:sessionId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
+                  <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
+                  <Route path="/admin" element={<AdminLoginPage />} />
+                  <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+                  <Route path="/admin/exams/create" element={<AdminRoute><CreateExamPage /></AdminRoute>} />
+                  <Route path="/admin/exams/:examId/answers" element={<AdminRoute><ExamAnswersPage /></AdminRoute>} />
+                  <Route path="/admin/exams/:examId/results" element={<AdminRoute><ExamResultsPage /></AdminRoute>} />
+                  <Route path="/admin/exams/:examId/codes" element={<AdminRoute><InviteCodesPage /></AdminRoute>} />
+                </Routes>
+              </Suspense>
             </TelegramGate>
           </ToastProvider>
         </BrowserRouter>

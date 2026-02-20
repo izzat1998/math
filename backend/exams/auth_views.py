@@ -117,9 +117,15 @@ def auth_telegram(request):
 
 
 @api_view(['POST'])
-@authentication_classes([StudentJWTAuthentication])
-@permission_classes([IsStudent])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([AuthRateThrottle])
 def join_exam_by_invite_code(request):
+    """Authenticate via invite code per spec: accepts code + full_name, returns JWT.
+
+    Also supports authenticated students (Telegram users) joining an exam
+    via invite code — in that case full_name is optional.
+    """
     code = request.data.get('code')
     if not code:
         return Response(
@@ -141,13 +147,39 @@ def join_exam_by_invite_code(request):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        student = request.user
+        # Check if the request comes from an already-authenticated student
+        student = None
+        try:
+            auth = StudentJWTAuthentication()
+            result = auth.authenticate(request)
+            if result:
+                student = result[0]
+        except Exception:
+            pass
+
+        # Unauthenticated web users must provide their name
+        if not student:
+            full_name = (request.data.get('full_name') or '').strip()
+            if not full_name:
+                return Response(
+                    {"error": "Ism talab qilinadi"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if len(full_name) > 255:
+                return Response(
+                    {"error": "Ism 255 belgidan oshmasligi kerak"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            student = Student.objects.create(full_name=full_name)
+
         if not invite.reusable:
             invite.is_used = True
             invite.used_by = student
             invite.save()
 
-    return Response({'exam_id': str(invite.exam.id)})
+    tokens = _get_tokens_for_student(student)
+    tokens['exam_id'] = str(invite.exam.id)
+    return Response(tokens)
 
 
 @api_view(['POST'])

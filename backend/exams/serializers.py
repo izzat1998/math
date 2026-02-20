@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import MockExam, CorrectAnswer, InviteCode, Question, PracticeSession
@@ -34,6 +35,7 @@ class CorrectAnswerSerializer(serializers.ModelSerializer):
 class BulkCorrectAnswerSerializer(serializers.Serializer):
     answers = CorrectAnswerSerializer(many=True)
 
+    @transaction.atomic
     def create(self, validated_data):
         exam = self.context['exam']
         answers = [CorrectAnswer(exam=exam, **data) for data in validated_data['answers']]

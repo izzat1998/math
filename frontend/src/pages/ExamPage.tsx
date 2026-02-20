@@ -246,9 +246,33 @@ export default function ExamPage() {
     if (isSubmitting.current || !session || submitted) return
     isSubmitting.current = true
 
-    // Clear any pending debounced answer saves
+    // Flush all pending debounced answer saves before submitting
+    const pendingKeys = Object.keys(debounceTimers.current)
     Object.values(debounceTimers.current).forEach(clearTimeout)
     debounceTimers.current = {}
+
+    // Send any pending free-response answers to the server
+    const flushPromises: Promise<void>[] = []
+    if (pendingKeys.length > 0) {
+      // Read current answers from localStorage backup (most reliable source)
+      const saved = loadSavedAnswers(session.session_id)
+      for (const key of pendingKeys) {
+        const answer = saved[key]
+        if (!answer) continue
+        const parts = key.split('_')
+        const questionNumber = parseInt(parts[0], 10)
+        const subPart = parts[1] || null
+        flushPromises.push(
+          api.post(`/sessions/${session.session_id}/answers/`, {
+            question_number: questionNumber,
+            sub_part: subPart,
+            answer,
+          }).then(() => {}).catch(() => {})
+        )
+      }
+    }
+
+    await Promise.all(flushPromises)
 
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
       setSubmitted(true)

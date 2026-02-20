@@ -35,7 +35,7 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
   useEffect(() => {
     const endTime = new Date(startedAt).getTime() + durationMinutes * 60 * 1000
 
-    intervalRef.current = setInterval(() => {
+    const tick = () => {
       const diff = endTime - Date.now()
       if (diff <= 0) {
         setRemainingMs(0)
@@ -44,10 +44,20 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
         return
       }
       setRemainingMs(diff)
-    }, 1000)
+    }
+
+    intervalRef.current = setInterval(tick, 1000)
+
+    // Force immediate update when tab becomes visible again
+    // (browsers throttle timers in background tabs)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') tick()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [startedAt, durationMinutes])
 

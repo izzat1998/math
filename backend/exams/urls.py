@@ -1,6 +1,12 @@
 from django.urls import path
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from . import views, auth_views, student_views, leaderboard_views, practice_views
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    rate = '5/minute'
+
 
 urlpatterns = [
     # Admin
@@ -14,8 +20,8 @@ urlpatterns = [
     path('auth/invite-code/', auth_views.join_exam_by_invite_code, name='join-exam-invite'),
     path('auth/logout/', auth_views.auth_logout, name='auth-logout'),
 
-    # JWT token endpoints
-    path('token/', TokenObtainPairView.as_view(), name='token-obtain'),
+    # JWT token endpoints (rate-limited to prevent brute force)
+    path('token/', TokenObtainPairView.as_view(throttle_classes=[LoginRateThrottle]), name='token-obtain'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 
     # Student — Real exams

@@ -45,10 +45,15 @@ def admin_exam_answers(request, exam_id):
     return Response({'message': 'Javoblar saqlandi'}, status=status.HTTP_201_CREATED)
 
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes(admin_perm)
 def admin_generate_invite_codes(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
+
+    if request.method == 'GET':
+        codes = InviteCode.objects.filter(exam=exam).order_by('-id')
+        return Response(InviteCodeSerializer(codes, many=True).data)
+
     serializer = GenerateInviteCodesSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 

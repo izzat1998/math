@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, Q
 
 from .models import StudentRating, EloHistory, ExamSession, StudentAnswer
 from .scoring import POINTS_TOTAL
@@ -48,17 +48,16 @@ def _compute_and_save(session):
 
     student_score = _score_percent(session)
 
-    # Compute exam average across all submitted sessions for this exam
-    # Uses a single annotated query instead of N+1
-    all_sessions = (
+    # Compute exam average with a single aggregated DB query
+    result = (
         ExamSession.objects
         .filter(exam=session.exam, status=ExamSession.Status.SUBMITTED)
         .exclude(id=session.id)
         .annotate(correct_count=Count('answers', filter=Q(answers__is_correct=True)))
+        .aggregate(avg_correct=Avg('correct_count'))
     )
-
-    avg_scores = [s.correct_count / POINTS_TOTAL for s in all_sessions]
-    exam_avg = sum(avg_scores) / len(avg_scores) if avg_scores else 0.5
+    avg_correct = result['avg_correct']
+    exam_avg = (avg_correct / POINTS_TOTAL) if avg_correct is not None else 0.5
 
     # Elo calculation
     k_factor = K_FACTOR_NEW if rating.exams_taken < K_FACTOR_THRESHOLD else K_FACTOR_ESTABLISHED
