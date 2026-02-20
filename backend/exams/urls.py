@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from . import views, auth_views, student_views, leaderboard_views, practice_views
+from . import views, auth_views, student_views, leaderboard_views, practice_views, dashboard_views
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -43,4 +43,9 @@ urlpatterns = [
     # Leaderboard
     path('leaderboard/', leaderboard_views.leaderboard, name='leaderboard'),
     path('me/elo-history/', leaderboard_views.my_elo_history, name='my-elo-history'),
+
+    # Dashboard
+    path('me/dashboard/', dashboard_views.dashboard, name='dashboard'),
+    path('me/history/', dashboard_views.exam_history, name='exam-history'),
+    path('me/achievements/', dashboard_views.achievements, name='achievements'),
 ]
