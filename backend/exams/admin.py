@@ -1,5 +1,9 @@
 from django.contrib import admin
-from .models import MockExam, CorrectAnswer, Student, ExamSession, StudentAnswer, StudentRating, EloHistory, ItemDifficulty, Question, PracticeSession
+from .models import (
+    MockExam, CorrectAnswer, Student, ExamSession, StudentAnswer,
+    StudentRating, EloHistory, ItemDifficulty, Question, PracticeSession,
+    Achievement, StudentAchievement, StudentStreak,
+)
 
 
 @admin.register(MockExam)
@@ -26,3 +30,6 @@ admin.site.register(StudentRating)
 admin.site.register(EloHistory)
 admin.site.register(ItemDifficulty)
 admin.site.register(PracticeSession)
+admin.site.register(Achievement)
+admin.site.register(StudentAchievement)
+admin.site.register(StudentStreak)
