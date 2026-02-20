@@ -6,9 +6,10 @@ interface TimerProps {
   onExpire: () => void
 }
 
-type Urgency = 'normal' | 'warning' | 'urgent'
+type Urgency = 'normal' | 'warning' | 'urgent' | 'critical'
 
 function getUrgency(ms: number): Urgency {
+  if (ms <= 30000) return 'critical'
   const minutes = ms / 60000
   if (minutes <= 5) return 'urgent'
   if (minutes <= 10) return 'warning'
@@ -19,6 +20,7 @@ const urgencyStyles: Record<Urgency, string> = {
   normal: 'bg-primary-800/60 text-white/90 border-primary-700/50',
   warning: 'bg-warning-500/15 text-warning-500 border-warning-500/30',
   urgent: 'bg-danger-500/15 text-danger-500 border-danger-500/40 animate-glow-pulse',
+  critical: 'bg-danger-600 text-white border-danger-700 animate-pulse scale-105',
 }
 
 export default function Timer({ startedAt, durationMinutes, onExpire }: TimerProps) {
@@ -76,11 +78,13 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
       {/* Pulsing dot indicator */}
       <span className="relative flex h-2 w-2">
         <span className={`absolute inset-0 rounded-full ${
+          urgency === 'critical' ? 'bg-danger-500 animate-pulse-urgent' :
           urgency === 'urgent' ? 'bg-danger-500 animate-pulse-urgent' :
           urgency === 'warning' ? 'bg-warning-500 animate-pulse-urgent' :
           'bg-accent-400'
         } opacity-75`} />
         <span className={`relative inline-flex rounded-full h-2 w-2 ${
+          urgency === 'critical' ? 'bg-danger-500' :
           urgency === 'urgent' ? 'bg-danger-500' :
           urgency === 'warning' ? 'bg-warning-500' :
           'bg-accent-400'

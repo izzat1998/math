@@ -13,6 +13,40 @@ import AnswerBar from '../components/AnswerBar'
 import Timer from '../components/Timer'
 import EloBadge from '../components/EloBadge'
 import LoadingSpinner from '../components/LoadingSpinner'
+import ConnectionBanner from '../components/ConnectionBanner'
+
+function ProgressIndicator({ answers, variant = 'dark' }: { answers: Record<string, string>; variant?: 'dark' | 'light' }) {
+  let answered = 0
+  for (let q = 1; q <= 35; q++) {
+    if (answers[`${q}`]) answered++
+  }
+  for (let q = 36; q <= 45; q++) {
+    if (answers[`${q}_a`]) answered++
+    if (answers[`${q}_b`]) answered++
+  }
+  const totalFields = 55
+  const percentage = Math.round((answered / totalFields) * 100)
+
+  const isDark = variant === 'dark'
+
+  return (
+    <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs font-medium ${
+      isDark
+        ? 'bg-white/10 border-white/10 text-white/80'
+        : 'bg-slate-100 border-slate-200 text-slate-500'
+    }`}>
+      <div className={`w-16 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-white/15' : 'bg-slate-200'}`}>
+        <div
+          className={`h-full rounded-full transition-all duration-300 ${isDark ? 'bg-accent-400' : 'bg-primary-500'}`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <span className="tabular-nums whitespace-nowrap">
+        {answered}/{totalFields}
+      </span>
+    </div>
+  )
+}
 
 function getStorageKey(sessionId: string) {
   return `exam_answers_${sessionId}`
@@ -363,6 +397,7 @@ export default function ExamPage() {
   if (isMobile) {
     return (
       <div className="h-screen-dvh flex flex-col bg-slate-50">
+        <ConnectionBanner />
         {/* Header */}
         {!isTelegram ? (
           <div className="flex items-center justify-between px-3 py-2.5 bg-primary-800 z-30 shrink-0">
@@ -375,6 +410,7 @@ export default function ExamPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
               </svg>
             </button>
+            <ProgressIndicator answers={answers} />
             <Timer
               startedAt={session.started_at}
               durationMinutes={session.duration}
@@ -382,7 +418,8 @@ export default function ExamPage() {
             />
           </div>
         ) : (
-          <div className="flex items-center justify-center px-3 py-2.5 bg-primary-900/50 z-30 shrink-0">
+          <div className="flex items-center justify-center gap-3 px-3 py-2.5 bg-primary-900/50 z-30 shrink-0">
+            <ProgressIndicator answers={answers} />
             <Timer
               startedAt={session.started_at}
               durationMinutes={session.duration}
@@ -412,6 +449,7 @@ export default function ExamPage() {
   // ── Desktop layout ──
   return (
     <div className="h-screen-dvh flex flex-col bg-slate-50">
+      <ConnectionBanner />
       <div className="flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200/80 z-30 shrink-0">
         <div className="flex items-center gap-3">
           <button
@@ -427,6 +465,8 @@ export default function ExamPage() {
             {exam.title}
           </h1>
         </div>
+
+        <ProgressIndicator answers={answers} variant="light" />
 
         <Timer
           startedAt={session.started_at}
