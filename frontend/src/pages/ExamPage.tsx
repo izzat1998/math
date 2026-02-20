@@ -32,8 +32,8 @@ type ExamStatus = 'loading' | 'not_open' | 'closed' | 'active'
 function getExamStatus(exam: Exam | null): ExamStatus {
   if (!exam) return 'loading'
   const now = Date.now()
-  const open = new Date(exam.open_at).getTime()
-  const close = new Date(exam.close_at).getTime()
+  const open = new Date(exam.scheduled_start).getTime()
+  const close = new Date(exam.scheduled_end).getTime()
   if (now < open) return 'not_open'
   if (now > close) return 'closed'
   return 'active'
@@ -97,8 +97,8 @@ export default function ExamPage() {
           id: examId || 'dev-mock',
           title: 'Dev Mock Exam',
           duration: 120,
-          open_at: new Date(Date.now() - 3600000).toISOString(),
-          close_at: new Date(Date.now() + 3600000).toISOString(),
+          scheduled_start: new Date(Date.now() - 3600000).toISOString(),
+          scheduled_end: new Date(Date.now() + 3600000).toISOString(),
           is_open: true,
         } as Exam)
       } else {
@@ -332,7 +332,7 @@ export default function ExamPage() {
           <h2 className="text-lg font-bold text-slate-800 mb-2 tracking-tight">Imtihon hali ochilmagan</h2>
           <p className="text-sm text-slate-400 font-medium mb-1">{exam.title}</p>
           <p className="text-sm text-slate-400">
-            {new Date(exam.open_at).toLocaleString()}
+            {new Date(exam.scheduled_start).toLocaleString()}
           </p>
         </div>
       </div>

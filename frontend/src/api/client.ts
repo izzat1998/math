@@ -76,12 +76,13 @@ api.interceptors.response.use(
       return api(originalRequest)
     } catch (refreshError) {
       processQueue(refreshError, null)
-      // Refresh failed — clear student auth tokens only
+      // Refresh failed — clear auth and reload (TelegramGate will handle re-authentication)
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('student_id')
       localStorage.removeItem('full_name')
-      window.location.href = '/'
+      // Don't redirect — TelegramGate will handle re-authentication
+      window.location.reload()
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

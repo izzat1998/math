@@ -6,8 +6,8 @@ import AdminLayout from '../../components/AdminLayout'
 
 function ExamStatusBadge({ exam }: { exam: Exam }) {
   const now = Date.now()
-  const open = new Date(exam.open_at).getTime()
-  const close = new Date(exam.close_at).getTime()
+  const open = new Date(exam.scheduled_start).getTime()
+  const close = new Date(exam.scheduled_end).getTime()
 
   let label: string
   let className: string
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
                   <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                   </svg>
-                  {new Date(exam.open_at).toLocaleDateString()} - {new Date(exam.close_at).toLocaleDateString()}
+                  {new Date(exam.scheduled_start).toLocaleDateString()} - {new Date(exam.scheduled_end).toLocaleDateString()}
                 </p>
                 <p className="flex items-center gap-1.5">
                   <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -123,12 +123,6 @@ export default function AdminDashboard() {
                   className="flex-1 text-center text-xs font-medium py-2 rounded-lg bg-success-50 text-success-700 hover:bg-success-100 transition-colors"
                 >
                   Natijalar
-                </Link>
-                <Link
-                  to={`/admin/exams/${exam.id}/codes`}
-                  className="flex-1 text-center text-xs font-medium py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors"
-                >
-                  Kodlar
                 </Link>
               </div>
             </div>

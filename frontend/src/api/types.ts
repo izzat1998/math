@@ -1,9 +1,10 @@
+// Exam types
 export interface Exam {
   id: string
   title: string
   pdf_file: string
-  open_at: string
-  close_at: string
+  scheduled_start: string
+  scheduled_end: string
   duration: number
   created_at: string
   is_open?: boolean
@@ -12,7 +13,7 @@ export interface Exam {
 export interface SessionStart {
   session_id: string
   started_at: string
-  duration: number
+  duration: number  // May be less than 150 for late starters
 }
 
 export interface AnswerBreakdown {
@@ -20,7 +21,7 @@ export interface AnswerBreakdown {
   sub_part: string | null
   is_correct: boolean
   student_answer: string
-  correct_answer: string | null
+  correct_answer: string
 }
 
 export interface EloChange {
@@ -34,14 +35,58 @@ export interface ExamResults {
   exercises_total: number
   points: number
   points_total: number
+  rasch_scaled: number | null
+  letter_grade: string
   is_auto_submitted: boolean
   exam_closed: boolean
   exam_title: string
   breakdown: AnswerBreakdown[]
-  elo: EloChange | null
+  elo?: EloChange
   message?: string
 }
 
+// Dashboard types
+export interface DashboardData {
+  elo: number
+  rasch_scaled: number | null
+  exams_taken: number
+  current_streak: number
+  longest_streak: number
+  achievements: AchievementEarned[]
+  upcoming_exam: UpcomingExamInfo | null
+}
+
+export interface AchievementEarned {
+  name: string
+  type: 'streak' | 'milestone' | 'improvement'
+  icon: string
+  earned_at: string
+}
+
+export interface AchievementFull {
+  id: string
+  name: string
+  type: 'streak' | 'milestone' | 'improvement'
+  description: string
+  icon: string
+  threshold: number
+  earned: boolean
+  earned_at: string | null
+}
+
+export interface ExamHistoryEntry {
+  session_id: string
+  exam_id: string
+  exam_title: string
+  submitted_at: string | null
+  exercises_correct: number
+  exercises_total: number
+  rasch_scaled: number | null
+  elo_delta: number | null
+  is_auto_submitted: boolean
+}
+
+// Leaderboard types
 export interface LeaderboardEntry {
   rank: number
   student_id: string
@@ -57,7 +102,7 @@ export interface LeaderboardEntry {
 export interface LeaderboardResponse {
   tab: string
   entries: LeaderboardEntry[]
-  my_entry: LeaderboardEntry | null
+  my_entry?: LeaderboardEntry
 }
 
 export interface EloHistoryPoint {
@@ -75,22 +120,23 @@ export interface EloHistoryResponse {
   history: EloHistoryPoint[]
 }
 
+// Auth types
 export interface AuthResponse {
   access: string
   refresh: string
   student_id: string
   full_name: string
-  exam_id?: string
 }
 
+// Practice types
 export interface Question {
   id: string
   text: string
-  image: string | null
+  image?: string
   topic: string
   difficulty: number
-  answer_type: 'multiple_choice' | 'free_response'
-  choices: string[] | null
+  answer_type: 'mcq' | 'free_text'
+  choices?: string[]
 }
 
 export interface QuestionResult extends Question {
@@ -116,23 +162,27 @@ export interface PracticeBreakdown {
 
 export interface PracticeResults {
   session_id: string
-  mode: 'light' | 'medium'
+  mode: string
   score: number
   total: number
   duration: number
   started_at: string
-  submitted_at: string | null
+  submitted_at?: string
   breakdown: PracticeBreakdown[]
 }
 
+// Upcoming & Lobby
+export interface UpcomingExamInfo {
+  id: string
+  title: string
+  scheduled_start: string
+  scheduled_end: string
+  has_started: boolean
+  already_taken?: boolean
+}
+
 export interface UpcomingExam {
-  exam: {
-    id: string
-    title: string
-    scheduled_start: string
-    scheduled_end: string
-    has_started: boolean
-  } | null
+  exam: UpcomingExamInfo | null
 }
 
 export interface LobbyInfo {

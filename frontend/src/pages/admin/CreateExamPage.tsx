@@ -8,8 +8,8 @@ export default function CreateExamPage() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [title, setTitle] = useState('')
-  const [openAt, setOpenAt] = useState('')
-  const [closeAt, setCloseAt] = useState('')
+  const [scheduledStart, setOpenAt] = useState('')
+  const [scheduledEnd, setCloseAt] = useState('')
   const [duration, setDuration] = useState(150)
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [error, setError] = useState('')
@@ -45,8 +45,8 @@ export default function CreateExamPage() {
     setSubmitting(true)
     const formData = new FormData()
     formData.append('title', title)
-    formData.append('open_at', new Date(openAt).toISOString())
-    formData.append('close_at', new Date(closeAt).toISOString())
+    formData.append('scheduled_start', new Date(scheduledStart).toISOString())
+    formData.append('scheduled_end', new Date(scheduledEnd).toISOString())
     formData.append('duration', String(duration))
     formData.append('pdf_file', pdfFile)
     try {
@@ -132,7 +132,7 @@ export default function CreateExamPage() {
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">Ochilish vaqti</label>
                 <input
                   type="datetime-local"
-                  value={openAt}
+                  value={scheduledStart}
                   onChange={(e) => setOpenAt(e.target.value)}
                   required
                 />
@@ -141,7 +141,7 @@ export default function CreateExamPage() {
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">Yopilish vaqti</label>
                 <input
                   type="datetime-local"
-                  value={closeAt}
+                  value={scheduledEnd}
                   onChange={(e) => setCloseAt(e.target.value)}
                   required
                 />

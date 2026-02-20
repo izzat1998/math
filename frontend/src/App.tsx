@@ -8,7 +8,6 @@ import ErrorBoundary from './components/ErrorBoundary'
 import LoadingSpinner from './components/LoadingSpinner'
 
 // Lazy-loaded pages for code splitting
-const LoginPage = lazy(() => import('./pages/LoginPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const ExamPage = lazy(() => import('./pages/ExamPage'))
 const ResultsPage = lazy(() => import('./pages/ResultsPage'))
@@ -21,12 +20,16 @@ const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const CreateExamPage = lazy(() => import('./pages/admin/CreateExamPage'))
 const ExamAnswersPage = lazy(() => import('./pages/admin/ExamAnswersPage'))
 const ExamResultsPage = lazy(() => import('./pages/admin/ExamResultsPage'))
-const InviteCodesPage = lazy(() => import('./pages/admin/InviteCodesPage'))
+const HistoryPage = lazy(() => import('./pages/HistoryPage'))
+const WaitingPage = lazy(() => import('./pages/WaitingPage'))
+const EditExamPage = lazy(() => import('./pages/admin/EditExamPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />
+    // In Telegram Mini App, user should be auto-authenticated
+    // If not, show loading or error state instead of redirect
+    return <LoadingSpinner fullScreen label="Autentifikatsiya..." />
   }
   return <>{children}</>
 }
@@ -102,19 +105,20 @@ function App() {
               <Suspense fallback={<LoadingSpinner fullScreen />}>
                 <Routes>
                   <Route path="/" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-                  <Route path="/login" element={<LoginPage />} />
                   <Route path="/practice/:id" element={<ProtectedRoute><PracticeExamPage /></ProtectedRoute>} />
                   <Route path="/practice/:id/results" element={<ProtectedRoute><PracticeResultsPage /></ProtectedRoute>} />
                   <Route path="/exam/:examId/lobby" element={<ProtectedRoute><LobbyPage /></ProtectedRoute>} />
                   <Route path="/exam/:examId" element={<ProtectedRoute><ExamPage /></ProtectedRoute>} />
                   <Route path="/results/:sessionId" element={<ProtectedRoute><ResultsPage /></ProtectedRoute>} />
                   <Route path="/leaderboard" element={<ProtectedRoute><LeaderboardPage /></ProtectedRoute>} />
+                  <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+                  <Route path="/exam/:examId/waiting" element={<ProtectedRoute><WaitingPage /></ProtectedRoute>} />
                   <Route path="/admin" element={<AdminLoginPage />} />
                   <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                   <Route path="/admin/exams/create" element={<AdminRoute><CreateExamPage /></AdminRoute>} />
                   <Route path="/admin/exams/:examId/answers" element={<AdminRoute><ExamAnswersPage /></AdminRoute>} />
                   <Route path="/admin/exams/:examId/results" element={<AdminRoute><ExamResultsPage /></AdminRoute>} />
-                  <Route path="/admin/exams/:examId/codes" element={<AdminRoute><InviteCodesPage /></AdminRoute>} />
+                  <Route path="/admin/exams/:examId/edit" element={<AdminRoute><EditExamPage /></AdminRoute>} />
                 </Routes>
               </Suspense>
             </TelegramGate>

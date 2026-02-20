@@ -76,9 +76,6 @@ export default function DashboardPage() {
   const [upcomingLoaded, setUpcomingLoaded] = useState(false)
   const [starting, setStarting] = useState<string | null>(null)
   const [myElo, setMyElo] = useState<number | null>(null)
-  const [inviteCode, setInviteCode] = useState('')
-  const [codeError, setCodeError] = useState('')
-  const [codeLoading, setCodeLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -152,7 +149,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <button
-                onClick={() => { logout(); navigate('/login', { replace: true }) }}
+                onClick={() => { logout(); window.location.reload() }}
                 className="text-sm text-white/40 hover:text-red-400 transition-colors font-medium pl-2 border-l border-white/10"
               >
                 Chiqish
@@ -252,52 +249,8 @@ export default function DashboardPage() {
                 </button>
               </>
             ) : (
-              <div className="space-y-3">
-                <div className="h-11 flex items-center justify-center text-sm text-slate-300 font-medium">
-                  Rejalashtirilgan imtihon yo'q
-                </div>
-                <div className="border-t border-slate-100 pt-3">
-                  <p className="text-xs text-slate-400 font-medium mb-2">Taklif kodingiz bormi?</p>
-                  {codeError && (
-                    <p className="text-xs text-danger-500 font-medium mb-2">{codeError}</p>
-                  )}
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault()
-                      if (!inviteCode.trim()) return
-                      setCodeError('')
-                      setCodeLoading(true)
-                      try {
-                        const { data } = await api.post('/auth/invite-code/', {
-                          code: inviteCode,
-                        })
-                        if (data.exam_id) {
-                          navigate(`/exam/${data.exam_id}`)
-                        }
-                      } catch {
-                        setCodeError("Kod noto'g'ri yoki ishlatilgan")
-                      } finally {
-                        setCodeLoading(false)
-                      }
-                    }}
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      placeholder="XXXX-XXXX"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                      className="!h-10 !rounded-xl !border-[1.5px] !font-mono !tracking-[0.15em] !text-center !text-sm !font-bold !text-primary-500 flex-1"
-                    />
-                    <button
-                      type="submit"
-                      disabled={codeLoading || !inviteCode.trim()}
-                      className="h-10 px-4 rounded-xl bg-primary-800 text-white font-bold text-sm disabled:opacity-50 transition-all active:scale-[0.97] hover:bg-primary-700 shrink-0"
-                    >
-                      {codeLoading ? <LoadingSpinner size="sm" /> : 'Kirish'}
-                    </button>
-                  </form>
-                </div>
+              <div className="h-11 flex items-center justify-center text-sm text-slate-300 font-medium">
+                Rejalashtirilgan imtihon yo'q
               </div>
             )}
           </div>
