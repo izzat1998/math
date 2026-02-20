@@ -89,6 +89,8 @@ class StudentRating(models.Model):
     student = models.OneToOneField(Student, on_delete=models.CASCADE, primary_key=True, related_name='rating')
     elo = models.IntegerField(default=1200)
     exams_taken = models.IntegerField(default=0)
+    rasch_ability = models.FloatField(default=0.0, help_text="Current Rasch theta (logits)")
+    rasch_scaled = models.FloatField(default=50.0, help_text="Rasch score on 0-100 scale")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -105,6 +107,8 @@ class EloHistory(models.Model):
     elo_before = models.IntegerField()
     elo_after = models.IntegerField()
     elo_delta = models.IntegerField()
+    rasch_before = models.FloatField(default=50.0, help_text="Rasch scaled score before this exam")
+    rasch_after = models.FloatField(default=50.0, help_text="Rasch scaled score after this exam")
     score_percent = models.FloatField()
     exam_avg_percent = models.FloatField()
     k_factor = models.IntegerField()
@@ -193,3 +197,44 @@ class PracticeSession(models.Model):
 
     def __str__(self):
         return f"{self.student} — {self.get_mode_display()} ({self.status})"
+
+
+class Achievement(models.Model):
+    class Type(models.TextChoices):
+        STREAK = 'streak', 'Streak'
+        MILESTONE = 'milestone', 'Milestone'
+        IMPROVEMENT = 'improvement', 'Improvement'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    type = models.CharField(max_length=20, choices=Type.choices)
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    threshold = models.FloatField(help_text="Numeric threshold for earning")
+    icon = models.CharField(max_length=50)
+
+    def __str__(self):
+        return f"{self.name} ({self.type})"
+
+
+class StudentAchievement(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student = models.ForeignKey('Student', on_delete=models.CASCADE, related_name='achievements')
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    earned_at = models.DateTimeField(auto_now_add=True)
+    session = models.ForeignKey('ExamSession', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        unique_together = ('student', 'achievement')
+
+    def __str__(self):
+        return f"{self.student.full_name} - {self.achievement.name}"
+
+
+class StudentStreak(models.Model):
+    student = models.OneToOneField('Student', on_delete=models.CASCADE, primary_key=True, related_name='streak')
+    current_streak = models.IntegerField(default=0)
+    longest_streak = models.IntegerField(default=0)
+    last_exam_date = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.student.full_name}: {self.current_streak} streak"
