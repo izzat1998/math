@@ -311,6 +311,11 @@ def _submit_session(session, auto=False):
 
     update_elo_after_submission(session)
 
+    from .gamification import update_streak, check_streak_broken, check_and_award_achievements
+    check_streak_broken(session.student, session.exam)
+    update_streak(session.student)
+    check_and_award_achievements(session.student, session)
+
 
 def submit_session_safe(session_id, auto=False):
     """Thread-safe submission entry point for Celery tasks."""
