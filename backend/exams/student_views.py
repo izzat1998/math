@@ -19,15 +19,6 @@ student_perm = [IsStudent]
 ALREADY_SUBMITTED_MSG = 'Allaqachon topshirilgan'
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def latest_exam(request):
-    """Public endpoint: returns the latest exam ID."""
-    exam = MockExam.objects.order_by('-created_at').first()
-    if not exam:
-        return Response({'error': 'No exams found'}, status=status.HTTP_404_NOT_FOUND)
-    return Response({'exam_id': str(exam.id)})
-
 
 @api_view(['GET'])
 @authentication_classes(student_auth)

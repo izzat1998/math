@@ -107,10 +107,15 @@ def auth_telegram(request):
     last_name = user_data.get('last_name', '')
     full_name = f"{first_name} {last_name}".strip()
 
-    student, _ = Student.objects.get_or_create(
+    student, created = Student.objects.get_or_create(
         telegram_id=telegram_id,
         defaults={'full_name': full_name},
     )
+
+    # Sync name on every login (not just creation)
+    if not created and student.full_name != full_name:
+        student.full_name = full_name
+        student.save(update_fields=['full_name'])
 
     return Response(_get_tokens_for_student(student))
 

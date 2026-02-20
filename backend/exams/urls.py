@@ -23,7 +23,6 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 
     # Student — Real exams
-    path('exams/latest/', student_views.latest_exam, name='latest-exam'),
     path('exams/upcoming/', student_views.upcoming_exam, name='upcoming-exam'),
     path('exams/<uuid:exam_id>/', student_views.exam_detail, name='exam-detail'),
     path('exams/<uuid:exam_id>/pdf/', student_views.exam_pdf, name='exam-pdf'),
