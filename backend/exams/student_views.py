@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from .elo import update_elo_after_submission
 from .models import MockExam, ExamSession, StudentAnswer, CorrectAnswer, EloHistory
 from .permissions import StudentJWTAuthentication, IsStudent
-from .scoring import compute_score, compute_rasch_score, normalize_answer
+from .scoring import compute_score, compute_rasch_score, normalize_answer, compute_letter_grade, compute_rasch_scaled_score
 from .serializers import MockExamSerializer
 
 student_auth = [StudentJWTAuthentication]
@@ -175,12 +175,19 @@ def session_results(request, session_id):
     score = compute_score(session)
     answers = StudentAnswer.objects.filter(session=session).order_by('question_number', 'sub_part')
 
+    # Get correct answers for breakdown
+    correct_answers_map = {
+        (ca.question_number, ca.sub_part): ca.correct_answer
+        for ca in CorrectAnswer.objects.filter(exam=session.exam)
+    }
+
     breakdown = [
         {
             'question_number': a.question_number,
             'sub_part': a.sub_part,
             'is_correct': a.is_correct,
             'student_answer': a.answer,
+            'correct_answer': correct_answers_map.get((a.question_number, a.sub_part), ''),
         }
         for a in answers
     ]
@@ -197,15 +204,26 @@ def session_results(request, session_id):
         pass
 
     rasch_data = compute_rasch_score(session)
+    rasch_scaled = None
+    if rasch_data and 'theta' in rasch_data:
+        rasch_scaled = compute_rasch_scaled_score(rasch_data['theta'])
+
+    # Compute letter grade based on points (all submitted sessions for this exam)
+    all_sessions = ExamSession.objects.filter(
+        exam=session.exam, status=ExamSession.Status.SUBMITTED
+    )
+    all_points = [compute_score(s)['points'] for s in all_sessions]
+    letter_grade = compute_letter_grade(score['points'], all_points)
 
     return Response({
         **score,
+        'rasch_scaled': rasch_scaled,
+        'letter_grade': letter_grade,
         'is_auto_submitted': session.is_auto_submitted,
         'exam_closed': exam_closed,
         'exam_title': session.exam.title,
         'breakdown': breakdown,
         'elo': elo_data,
-        'rasch': rasch_data,
     })
 
 

@@ -112,3 +112,47 @@ def compute_rasch_score(session):
         'expected_score': round(expected_score, 1),
         'raw_percentage': round(raw_correct / total_items * 100, 1),
     }
+
+
+def compute_letter_grade(score, all_scores):
+    """
+    Compute percentile-based letter grade.
+    A+ (top 10%), A (top 20%), B+ (top 35%), B (top 50%),
+    C+ (top 65%), C (top 80%), below = D
+    """
+    if not all_scores:
+        return 'D'
+
+    sorted_scores = sorted(all_scores, reverse=True)
+    total = len(sorted_scores)
+    # Rank = number of scores strictly greater than this score + 1
+    rank = sum(1 for s in sorted_scores if s > score) + 1
+    percentile_rank = (rank - 1) / total  # 0.0 = best, 1.0 = worst
+
+    if percentile_rank <= 0.10:
+        return 'A+'
+    elif percentile_rank <= 0.20:
+        return 'A'
+    elif percentile_rank <= 0.35:
+        return 'B+'
+    elif percentile_rank <= 0.50:
+        return 'B'
+    elif percentile_rank <= 0.65:
+        return 'C+'
+    elif percentile_rank <= 0.80:
+        return 'C'
+    else:
+        return 'D'
+
+
+MIN_RASCH_PARTICIPANTS = 10
+
+
+def compute_rasch_scaled_score(theta, min_theta=-4.0, max_theta=4.0):
+    """
+    Convert Rasch theta (logits) to 0-100 scaled score.
+    Linear mapping from [min_theta, max_theta] to [0, 100].
+    Clamps to [0, 100].
+    """
+    scaled = ((theta - min_theta) / (max_theta - min_theta)) * 100
+    return max(0.0, min(100.0, round(scaled, 1)))
