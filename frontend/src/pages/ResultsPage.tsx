@@ -105,6 +105,13 @@ function SubPartDetail({ label, part }: { label: string; part: AnswerBreakdown |
   )
 }
 
+function getGradeColor(grade: string): string {
+  if (grade.startsWith('A')) return 'text-success-600'
+  if (grade.startsWith('B')) return 'text-accent-600'
+  if (grade.startsWith('C')) return 'text-warning-600'
+  return 'text-danger-500'
+}
+
 export default function ResultsPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
@@ -270,6 +277,28 @@ export default function ResultsPage() {
             {unansweredMcq} bo'sh
           </span>
         </div>
+
+        {/* Rasch score + Letter grade */}
+        {results.exam_closed && (results.rasch_scaled !== null || results.letter_grade) && (
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {results.rasch_scaled !== null && (
+              <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/60">
+                <div className="text-3xl font-extrabold text-primary-600 tracking-tight">
+                  {results.rasch_scaled.toFixed(0)}
+                </div>
+                <div className="text-xs font-semibold text-slate-400 mt-1">Rasch ball</div>
+              </div>
+            )}
+            {results.letter_grade && (
+              <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/60">
+                <div className={`text-3xl font-extrabold tracking-tight ${getGradeColor(results.letter_grade)}`}>
+                  {results.letter_grade}
+                </div>
+                <div className="text-xs font-semibold text-slate-400 mt-1">Baho</div>
+              </div>
+            )}
+          </div>
+        )}
 
         {results.elo && <EloChangeCard elo={results.elo} />}
 
