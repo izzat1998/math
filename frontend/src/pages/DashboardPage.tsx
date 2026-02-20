@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import api from '../api/client'
 import type { ReactNode } from 'react'
-import type { UpcomingExam } from '../api/types'
+import type { DashboardData } from '../api/types'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EloBadge from '../components/EloBadge'
 import DotPattern from '../components/DotPattern'
@@ -72,29 +72,24 @@ export default function DashboardPage() {
   const { fullName, logout } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
-  const [upcoming, setUpcoming] = useState<UpcomingExam['exam']>(null)
-  const [upcomingLoaded, setUpcomingLoaded] = useState(false)
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null)
+  const [dashboardLoaded, setDashboardLoaded] = useState(false)
   const [starting, setStarting] = useState<string | null>(null)
-  const [myElo, setMyElo] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
-    api.get<UpcomingExam>('/exams/upcoming/').then(({ data }) => {
+    api.get<DashboardData>('/me/dashboard/').then(({ data }) => {
       if (!cancelled) {
-        setUpcoming(data.exam)
-        setUpcomingLoaded(true)
+        setDashboard(data)
+        setDashboardLoaded(true)
       }
     }).catch(() => {
       if (!cancelled) {
-        setUpcomingLoaded(true)
-        toast('Imtihon ma\'lumotlarini yuklashda xatolik', 'error')
+        setDashboardLoaded(true)
+        toast('Dashboard ma\'lumotlarini yuklashda xatolik', 'error')
       }
     })
-
-    api.get<{ current_elo: number }>('/me/elo-history/').then(({ data }) => {
-      if (!cancelled) setMyElo(data.current_elo)
-    }).catch(() => {})
 
     return () => { cancelled = true }
   }, [toast])
@@ -111,6 +106,8 @@ export default function DashboardPage() {
     }
   }
 
+  const upcoming = dashboard?.upcoming_exam ?? null
+
   const upcomingTime = upcoming?.scheduled_start
     ? new Date(upcoming.scheduled_start).toLocaleString('uz-UZ', {
         day: 'numeric',
@@ -123,6 +120,10 @@ export default function DashboardPage() {
   const firstName = fullName?.split(' ')[0] || 'Talaba'
   const userInitial = fullName?.charAt(0)?.toUpperCase() || '?'
 
+  const raschDisplay = dashboard?.rasch_scaled !== null && dashboard?.rasch_scaled !== undefined
+    ? Math.round(dashboard.rasch_scaled)
+    : null
+
   return (
     <div className="min-h-screen-dvh bg-white">
       {/* Hero header */}
@@ -133,7 +134,7 @@ export default function DashboardPage() {
 
         <div className="relative max-w-2xl mx-auto px-5 pt-6 pb-10">
           {/* Nav row */}
-          <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-white/[0.12] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center">
                 <span className="text-sm font-extrabold text-white/90">M</span>
@@ -141,7 +142,7 @@ export default function DashboardPage() {
               <span className="text-[13px] font-semibold text-white/40 tracking-wide">MATH EXAM</span>
             </div>
             <div className="flex items-center gap-2.5">
-              {myElo !== null && <EloBadge elo={myElo} />}
+              {dashboard && <EloBadge elo={dashboard.elo} />}
               <div className="flex items-center gap-2 pl-2 border-l border-white/10">
                 <span className="text-[13px] text-white/50 font-medium">{fullName}</span>
                 <div className="w-7 h-7 rounded-lg bg-white/[0.12] border border-white/[0.08] flex items-center justify-center">
@@ -158,7 +159,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Welcome text */}
-          <div>
+          <div className="mb-6">
             <h1 className="text-[28px] font-extrabold text-white tracking-tight leading-tight">
               Salom, {firstName}
             </h1>
@@ -166,49 +167,73 @@ export default function DashboardPage() {
               Mashq yoki haqiqiy imtihonni tanlang
             </p>
           </div>
+
+          {/* Rasch ability score */}
+          {dashboardLoaded && raschDisplay !== null && (
+            <div className="bg-white/[0.08] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-4 mb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-bold text-white/30 uppercase tracking-wider mb-1">Qobiliyat darajasi</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[36px] font-extrabold text-white tracking-tight leading-none">{raschDisplay}</span>
+                    <span className="text-[13px] font-semibold text-white/30">/ 100</span>
+                  </div>
+                </div>
+                <div className="w-16 h-16 rounded-full border-[3px] border-white/10 flex items-center justify-center relative">
+                  <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 64 64">
+                    <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                    <circle
+                      cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="3"
+                      strokeDasharray={`${(raschDisplay / 100) * 175.9} 175.9`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="text-xs font-bold text-white/60">{raschDisplay}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Stats row */}
+          {dashboardLoaded && dashboard && (
+            <div className="grid grid-cols-3 gap-2.5 mt-4">
+              <div className="bg-white/[0.06] border border-white/[0.06] rounded-xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <svg className="w-3.5 h-3.5 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                  </svg>
+                  <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider">ELO</span>
+                </div>
+                <span className="text-lg font-extrabold text-white">{dashboard.elo}</span>
+              </div>
+              <div className="bg-white/[0.06] border border-white/[0.06] rounded-xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <span className="text-sm">🔥</span>
+                  <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider">Seriya</span>
+                </div>
+                <span className="text-lg font-extrabold text-white">{dashboard.current_streak}</span>
+              </div>
+              <div className="bg-white/[0.06] border border-white/[0.06] rounded-xl p-3 text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <svg className="w-3.5 h-3.5 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider">Imtihonlar</span>
+                </div>
+                <span className="text-lg font-extrabold text-white">{dashboard.exams_taken}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Cards */}
       <div className="max-w-2xl mx-auto px-5 -mt-1">
         <div className="space-y-3.5">
-          <PracticeCard
-            mode="light"
-            icon={
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 flex items-center justify-center shrink-0">
-                <LightningIcon className="w-5 h-5 text-emerald-500" />
-              </div>
-            }
-            title="Yengil mashq"
-            badge="Tezkor"
-            badgeColor="text-emerald-600 bg-emerald-50"
-            description="6 ta savol &middot; 30 daqiqa"
-            loading={starting === 'light'}
-            disabled={!!starting}
-            onClick={() => startPractice('light')}
-          />
-
-          <PracticeCard
-            mode="medium"
-            icon={
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 flex items-center justify-center shrink-0">
-                <ClockIcon className="w-5 h-5 text-amber-500" />
-              </div>
-            }
-            title="O'rta mashq"
-            badge="Tavsiya"
-            badgeColor="text-amber-600 bg-amber-50"
-            description="10 ta savol &middot; 60 daqiqa"
-            loading={starting === 'medium'}
-            disabled={!!starting}
-            animationDelay="60ms"
-            onClick={() => startPractice('medium')}
-          />
-
-          {/* Real exam */}
+          {/* Upcoming exam card */}
           <div
             className={CARD_CLASS}
-            style={{ animationDelay: '120ms' }}
+            style={{ animationDelay: '0ms' }}
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary-50 to-primary-100/50 flex items-center justify-center shrink-0">
@@ -225,7 +250,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {!upcomingLoaded ? (
+            {!dashboardLoaded ? (
               <div className="h-11 flex items-center justify-center">
                 <LoadingSpinner size="sm" />
               </div>
@@ -254,6 +279,76 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+
+          {/* Practice cards */}
+          <PracticeCard
+            mode="light"
+            icon={
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100/50 flex items-center justify-center shrink-0">
+                <LightningIcon className="w-5 h-5 text-emerald-500" />
+              </div>
+            }
+            title="Yengil mashq"
+            badge="Tezkor"
+            badgeColor="text-emerald-600 bg-emerald-50"
+            description="6 ta savol &middot; 30 daqiqa"
+            loading={starting === 'light'}
+            disabled={!!starting}
+            animationDelay="60ms"
+            onClick={() => startPractice('light')}
+          />
+
+          <PracticeCard
+            mode="medium"
+            icon={
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 flex items-center justify-center shrink-0">
+                <ClockIcon className="w-5 h-5 text-amber-500" />
+              </div>
+            }
+            title="O'rta mashq"
+            badge="Tavsiya"
+            badgeColor="text-amber-600 bg-amber-50"
+            description="10 ta savol &middot; 60 daqiqa"
+            loading={starting === 'medium'}
+            disabled={!!starting}
+            animationDelay="120ms"
+            onClick={() => startPractice('medium')}
+          />
+        </div>
+
+        {/* Quick links */}
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <Link
+            to="/leaderboard"
+            className="flex items-center gap-3 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_rgba(0,0,0,0.04)] p-4 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_rgba(0,0,0,0.08)] transition-shadow animate-slide-up"
+            style={{ animationDelay: '180ms' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-50 to-violet-100/50 flex items-center justify-center shrink-0">
+              <svg className="w-4.5 h-4.5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0 1 16.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.023 6.023 0 0 1-2.52.556m0 0a6.023 6.023 0 0 1-2.52-.556" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Reyting</p>
+              <p className="text-[11px] text-slate-400 font-medium">Reyting jadvali</p>
+            </div>
+          </Link>
+
+          <Link
+            to="/history"
+            className="flex items-center gap-3 bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06),0_8px_24px_rgba(0,0,0,0.04)] p-4 hover:shadow-[0_1px_3px_rgba(0,0,0,0.06),0_12px_32px_rgba(0,0,0,0.08)] transition-shadow animate-slide-up"
+            style={{ animationDelay: '240ms' }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-50 to-sky-100/50 flex items-center justify-center shrink-0">
+              <svg className="w-4.5 h-4.5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Tarix</p>
+              <p className="text-[11px] text-slate-400 font-medium">Imtihon natijalari</p>
+            </div>
+          </Link>
         </div>
 
         {/* Footer */}

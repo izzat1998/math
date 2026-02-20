@@ -255,12 +255,12 @@ export default function ExamPage() {
       setSubmitted(true)
       hapticNotification('success')
       hideMainButton()
-      navigate(`/results/${session.session_id}`)
+      navigate(`/exam/${examId}/waiting`)
     } catch {
       setMainButtonLoading(false)
       toast("Topshirishda xatolik yuz berdi. Qaytadan urinib ko'ring.", 'error')
     }
-  }, [session, submitted, isTelegram, showPopup, setMainButtonLoading, hapticNotification, hideMainButton, navigate, toast])
+  }, [session, submitted, isTelegram, showPopup, setMainButtonLoading, hapticNotification, hideMainButton, navigate, toast, examId])
 
   useEffect(() => {
     if (isTelegram && session && !submitted) {
@@ -312,12 +312,12 @@ export default function ExamPage() {
       setSubmitted(true)
       hapticNotification('warning')
       toast('Vaqt tugadi! Javoblar topshirildi.', 'success')
-      navigate(`/results/${session.session_id}`)
+      navigate(`/exam/${examId}/waiting`)
     }).catch(() => {
       isSubmitting.current = false
       toast('Vaqt tugadi, lekin topshirishda xatolik. Sahifani yangilang.', 'error')
     })
-  }, [session, submitted, navigate, hapticNotification, toast])
+  }, [session, submitted, navigate, hapticNotification, toast, examId])
 
   const handleNavigate = useCallback((q: number) => {
     setCurrentQuestion(q)
