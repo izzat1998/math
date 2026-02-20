@@ -38,3 +38,14 @@ def auto_submit_expired_sessions():
                 logger.exception('Failed to auto-submit session %s', session_id)
 
     return f"{count} ta sessiya avtomatik topshirildi"
+
+
+@shared_task
+def send_exam_notification(exam_id):
+    from .models import MockExam
+    from .notifications import notify_new_exam
+    try:
+        exam = MockExam.objects.get(id=exam_id)
+        notify_new_exam(exam)
+    except MockExam.DoesNotExist:
+        logger.error('Exam %s not found for notification', exam_id)

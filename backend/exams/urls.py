@@ -14,6 +14,7 @@ urlpatterns = [
     path('admin/exams/<uuid:exam_id>/', views.admin_exam_detail, name='admin-exam-detail'),
     path('admin/exams/<uuid:exam_id>/answers/', views.admin_exam_answers, name='admin-exam-answers'),
     path('admin/exams/<uuid:exam_id>/results/', views.admin_exam_results, name='admin-exam-results'),
+    path('admin/notify/', views.admin_notify, name='admin-notify'),
 
     # Auth
     path('auth/telegram/', auth_views.auth_telegram, name='auth-telegram'),

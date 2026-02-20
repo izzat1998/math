@@ -24,6 +24,8 @@ def admin_exams(request):
         serializer.is_valid(raise_exception=True)
         exam = serializer.save(created_by=request.user)
         logger.info('Admin %s created exam %s (%s)', request.user.username, exam.id, exam.title)
+        from .tasks import send_exam_notification
+        send_exam_notification.delay(str(exam.id))
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     exams = MockExam.objects.all().order_by('-created_at')
@@ -86,3 +88,16 @@ def admin_exam_results(request, exam_id):
         })
 
     return Response(results)
+
+
+@api_view(['POST'])
+@permission_classes(admin_perm)
+def admin_notify(request):
+    """Manually trigger exam notification."""
+    exam_id = request.data.get('exam_id')
+    if not exam_id:
+        return Response({'error': 'exam_id required'}, status=status.HTTP_400_BAD_REQUEST)
+    exam = get_object_or_404(MockExam, id=exam_id)
+    from .tasks import send_exam_notification
+    send_exam_notification.delay(str(exam.id))
+    return Response({'status': 'Notification queued'})
