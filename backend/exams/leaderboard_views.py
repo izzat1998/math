@@ -82,14 +82,29 @@ def leaderboard(request):
 
 
 def _top_rated(current_student, limit):
-    ratings = list(
-        StudentRating.objects
-        .select_related('student')
-        .order_by('-elo')[:limit]
-    )
+    from django.core.cache import cache
+
+    cache_key = f'leaderboard_top_{limit}'
+    cached = cache.get(cache_key)
+
+    if cached is not None:
+        # Use cached entries but personalize is_current_user
+        entries = [dict(e) for e in cached['entries']]  # shallow copy each dict
+        trend_data = cached['trend_data']
+    else:
+        ratings = list(
+            StudentRating.objects
+            .select_related('student')
+            .order_by('-elo')[:limit]
+        )
+        trend_data = _prefetch_trends([r.student_id for r in ratings])
+        entries = [_build_entry(r, i + 1, trend_data) for i, r in enumerate(ratings)]
+        cache.set(cache_key, {'entries': entries, 'trend_data': trend_data}, timeout=300)
+
     student_id = current_student.id if current_student else None
-    trend_data = _prefetch_trends([r.student_id for r in ratings])
-    entries = [_build_entry(r, i + 1, trend_data, student_id) for i, r in enumerate(ratings)]
+    if student_id:
+        for e in entries:
+            e['is_current_user'] = str(e['student_id']) == str(student_id)
 
     my_entry = _get_my_entry_top_rated(current_student, entries, trend_data) if current_student else None
 

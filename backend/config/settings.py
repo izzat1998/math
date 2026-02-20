@@ -80,15 +80,27 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+# Connection pooling: use if dj_db_conn_pool is installed, else fall back to standard
+try:
+    import dj_db_conn_pool  # noqa: F401
+    _DB_ENGINE = 'dj_db_conn_pool.backends.postgresql'
+except ImportError:
+    _DB_ENGINE = 'django.db.backends.postgresql'
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': _DB_ENGINE,
         'NAME': os.environ.get('DB_NAME', 'math_db'),
         'USER': os.environ.get('DB_USER', 'math_user'),
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
         'CONN_MAX_AGE': 600,
+        'POOL_OPTIONS': {
+            'POOL_SIZE': 20,
+            'MAX_OVERFLOW': 30,
+            'RECYCLE': 300,
+        },
     }
 }
 
@@ -162,6 +174,14 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'exams.tasks.auto_submit_expired_sessions',
         'schedule': 60.0,
     },
+}
+
+# Cache
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': f'redis://{_redis_auth}{_redis_host}:{_redis_port}/2',
+    }
 }
 
 # Security headers for production
