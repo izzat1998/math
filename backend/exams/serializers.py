@@ -1,13 +1,13 @@
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import MockExam, CorrectAnswer, InviteCode, Question, PracticeSession
+from .models import MockExam, CorrectAnswer, Question, PracticeSession
 
 
 class MockExamSerializer(serializers.ModelSerializer):
     class Meta:
         model = MockExam
-        fields = ['id', 'title', 'pdf_file', 'open_at', 'close_at', 'duration', 'created_at']
+        fields = ['id', 'title', 'pdf_file', 'scheduled_start', 'scheduled_end', 'duration', 'created_at']
         read_only_fields = ['id', 'created_at']
 
     def validate_pdf_file(self, value):
@@ -42,16 +42,6 @@ class BulkCorrectAnswerSerializer(serializers.Serializer):
         CorrectAnswer.objects.filter(exam=exam).delete()
         return CorrectAnswer.objects.bulk_create(answers)
 
-
-class InviteCodeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InviteCode
-        fields = ['id', 'code', 'is_used', 'used_by']
-        read_only_fields = ['id', 'code', 'is_used', 'used_by']
-
-
-class GenerateInviteCodesSerializer(serializers.Serializer):
-    count = serializers.IntegerField(min_value=1, max_value=500)
 
 
 class QuestionSerializer(serializers.ModelSerializer):

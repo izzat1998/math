@@ -37,7 +37,7 @@ def exam_detail(request, exam_id):
     now = timezone.now()
     return Response({
         **MockExamSerializer(exam).data,
-        'is_open': exam.open_at <= now <= exam.close_at,
+        'is_open': exam.scheduled_start <= now <= exam.scheduled_end,
     })
 
 
@@ -49,7 +49,7 @@ def exam_pdf(request, exam_id):
 
     # Only serve the PDF if the exam is currently open
     now = timezone.now()
-    if not (exam.open_at <= now <= exam.close_at):
+    if not (exam.scheduled_start <= now <= exam.scheduled_end):
         return Response({'error': 'Imtihon hozirda ochiq emas'}, status=status.HTTP_403_FORBIDDEN)
 
     # Require an active (in-progress) or submitted session for this student
@@ -72,7 +72,7 @@ def start_exam(request, exam_id):
     exam = get_object_or_404(MockExam, id=exam_id)
 
     now = timezone.now()
-    if not (exam.open_at <= now <= exam.close_at):
+    if not (exam.scheduled_start <= now <= exam.scheduled_end):
         return Response({'error': 'Imtihon hozirda ochiq emas'}, status=status.HTTP_403_FORBIDDEN)
 
     session, created = ExamSession.objects.get_or_create(
@@ -166,7 +166,7 @@ def session_results(request, session_id):
     if session.status != ExamSession.Status.SUBMITTED:
         return Response({'error': 'Imtihon hali topshirilmagan'}, status=status.HTTP_403_FORBIDDEN)
 
-    exam_closed = timezone.now() > session.exam.close_at
+    exam_closed = timezone.now() > session.exam.scheduled_end
 
     # Hold back all results until the exam window closes
     if not exam_closed:
@@ -231,7 +231,6 @@ def _session_payload(session, exam):
 def upcoming_exam(request):
     now = timezone.now()
     exam = MockExam.objects.filter(
-        is_scheduled=True,
         scheduled_end__gt=now,
     ).order_by('scheduled_start').first()
 
@@ -253,7 +252,7 @@ def upcoming_exam(request):
 @authentication_classes(student_auth)
 @permission_classes(student_perm)
 def exam_lobby(request, exam_id):
-    exam = get_object_or_404(MockExam, id=exam_id, is_scheduled=True)
+    exam = get_object_or_404(MockExam, id=exam_id)
     now = timezone.now()
 
     return Response({

@@ -12,12 +12,10 @@ urlpatterns = [
     # Admin
     path('admin/exams/', views.admin_exams, name='admin-exams'),
     path('admin/exams/<uuid:exam_id>/answers/', views.admin_exam_answers, name='admin-exam-answers'),
-    path('admin/exams/<uuid:exam_id>/invite-codes/', views.admin_generate_invite_codes, name='admin-invite-codes'),
     path('admin/exams/<uuid:exam_id>/results/', views.admin_exam_results, name='admin-exam-results'),
 
     # Auth
     path('auth/telegram/', auth_views.auth_telegram, name='auth-telegram'),
-    path('auth/invite-code/', auth_views.join_exam_by_invite_code, name='join-exam-invite'),
     path('auth/logout/', auth_views.auth_logout, name='auth-logout'),
 
     # JWT token endpoints (rate-limited to prevent brute force)

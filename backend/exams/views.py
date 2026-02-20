@@ -1,19 +1,15 @@
 import logging
-import secrets
-import string
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from .models import MockExam, ExamSession, InviteCode
+from .models import MockExam, ExamSession
 from .scoring import compute_score
 from .serializers import (
     MockExamSerializer,
     BulkCorrectAnswerSerializer,
-    GenerateInviteCodesSerializer,
-    InviteCodeSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,28 +40,6 @@ def admin_exam_answers(request, exam_id):
     logger.info('Admin %s uploaded answers for exam %s', request.user.username, exam_id)
     return Response({'message': 'Javoblar saqlandi'}, status=status.HTTP_201_CREATED)
 
-
-@api_view(['GET', 'POST'])
-@permission_classes(admin_perm)
-def admin_generate_invite_codes(request, exam_id):
-    exam = get_object_or_404(MockExam, id=exam_id)
-
-    if request.method == 'GET':
-        codes = InviteCode.objects.filter(exam=exam).order_by('-id')
-        return Response(InviteCodeSerializer(codes, many=True).data)
-
-    serializer = GenerateInviteCodesSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    count = serializer.validated_data['count']
-    alphabet = string.ascii_uppercase + string.digits
-    codes = [
-        InviteCode(exam=exam, code=''.join(secrets.choice(alphabet) for _ in range(10)))
-        for _ in range(count)
-    ]
-    InviteCode.objects.bulk_create(codes)
-    logger.info('Admin %s generated %d invite codes for exam %s', request.user.username, count, exam_id)
-    return Response(InviteCodeSerializer(codes, many=True).data, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])

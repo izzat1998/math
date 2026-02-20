@@ -1,11 +1,10 @@
 from django.contrib import admin
-from .models import MockExam, CorrectAnswer, Student, InviteCode, ExamSession, StudentAnswer, StudentRating, EloHistory, ItemDifficulty, Question, PracticeSession
+from .models import MockExam, CorrectAnswer, Student, ExamSession, StudentAnswer, StudentRating, EloHistory, ItemDifficulty, Question, PracticeSession
 
 
 @admin.register(MockExam)
 class MockExamAdmin(admin.ModelAdmin):
-    list_display = ['title', 'is_scheduled', 'scheduled_start', 'scheduled_end', 'created_at']
-    list_filter = ['is_scheduled']
+    list_display = ['title', 'scheduled_start', 'scheduled_end', 'created_at']
 
 
 @admin.register(Question)
@@ -21,7 +20,6 @@ class QuestionAdmin(admin.ModelAdmin):
 
 admin.site.register(CorrectAnswer)
 admin.site.register(Student)
-admin.site.register(InviteCode)
 admin.site.register(ExamSession)
 admin.site.register(StudentAnswer)
 admin.site.register(StudentRating)

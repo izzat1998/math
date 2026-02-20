@@ -15,14 +15,11 @@ class MockExam(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     pdf_file = models.FileField(upload_to=exam_pdf_path)
-    open_at = models.DateTimeField()
-    close_at = models.DateTimeField()
-    duration = models.IntegerField(default=150, help_text="Davomiyligi (daqiqalarda)")
+    scheduled_start = models.DateTimeField()
+    scheduled_end = models.DateTimeField()
+    duration = models.IntegerField(default=150, help_text="Duration in minutes")
     created_by = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
-    scheduled_start = models.DateTimeField(null=True, blank=True, help_text="Rejalashtirilgan boshlanish vaqti")
-    scheduled_end = models.DateTimeField(null=True, blank=True, help_text="Rejalashtirilgan tugash vaqti")
-    is_scheduled = models.BooleanField(default=False, help_text="Rejalashtirilgan imtihon")
 
     def __str__(self):
         return self.title
@@ -45,25 +42,12 @@ class CorrectAnswer(models.Model):
 class Student(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     full_name = models.CharField(max_length=255)
-    telegram_id = models.BigIntegerField(null=True, blank=True, unique=True)
-    email = models.EmailField(null=True, blank=True, unique=True)
-    google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    telegram_id = models.BigIntegerField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.full_name
 
-
-class InviteCode(models.Model):
-    exam = models.ForeignKey(MockExam, on_delete=models.CASCADE, related_name='invite_codes')
-    code = models.CharField(max_length=20, unique=True)
-    is_used = models.BooleanField(default=False)
-    used_by = models.ForeignKey(Student, on_delete=models.SET_NULL, null=True, blank=True)
-    reusable = models.BooleanField(default=False)
-
-    def __str__(self):
-        status = 'reusable' if self.reusable else ('used' if self.is_used else 'available')
-        return f"{self.code} ({status})"
 
 
 class ExamSession(models.Model):

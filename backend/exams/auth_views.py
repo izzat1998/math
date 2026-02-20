@@ -6,7 +6,6 @@ import time
 from urllib.parse import parse_qs
 
 from django.conf import settings
-from django.db import transaction
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
@@ -15,7 +14,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from .models import Student, InviteCode
+from .models import Student
 from .permissions import StudentJWTAuthentication, IsStudent
 
 logger = logging.getLogger(__name__)
@@ -114,72 +113,6 @@ def auth_telegram(request):
     )
 
     return Response(_get_tokens_for_student(student))
-
-
-@api_view(['POST'])
-@authentication_classes([])
-@permission_classes([AllowAny])
-@throttle_classes([AuthRateThrottle])
-def join_exam_by_invite_code(request):
-    """Authenticate via invite code per spec: accepts code + full_name, returns JWT.
-
-    Also supports authenticated students (Telegram users) joining an exam
-    via invite code — in that case full_name is optional.
-    """
-    code = request.data.get('code')
-    if not code:
-        return Response(
-            {"error": "Kod talab qilinadi"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
-
-    with transaction.atomic():
-        try:
-            invite = InviteCode.objects.select_for_update().get(code=code)
-            if invite.is_used and not invite.reusable:
-                return Response(
-                    {"error": "Taklif kodi allaqachon ishlatilgan"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        except InviteCode.DoesNotExist:
-            return Response(
-                {"error": "Taklif kodi noto'g'ri yoki ishlatilgan"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Check if the request comes from an already-authenticated student
-        student = None
-        try:
-            auth = StudentJWTAuthentication()
-            result = auth.authenticate(request)
-            if result:
-                student = result[0]
-        except Exception:
-            pass
-
-        # Unauthenticated web users must provide their name
-        if not student:
-            full_name = (request.data.get('full_name') or '').strip()
-            if not full_name:
-                return Response(
-                    {"error": "Ism talab qilinadi"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            if len(full_name) > 255:
-                return Response(
-                    {"error": "Ism 255 belgidan oshmasligi kerak"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            student = Student.objects.create(full_name=full_name)
-
-        if not invite.reusable:
-            invite.is_used = True
-            invite.used_by = student
-            invite.save()
-
-    tokens = _get_tokens_for_student(student)
-    tokens['exam_id'] = str(invite.exam.id)
-    return Response(tokens)
 
 
 @api_view(['POST'])
