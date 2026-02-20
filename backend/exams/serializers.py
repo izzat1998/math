@@ -10,6 +10,24 @@ class MockExamSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'pdf_file', 'scheduled_start', 'scheduled_end', 'duration', 'created_at']
         read_only_fields = ['id', 'created_at']
 
+    def validate(self, data):
+        start = data.get('scheduled_start') or (self.instance.scheduled_start if self.instance else None)
+        end = data.get('scheduled_end') or (self.instance.scheduled_end if self.instance else None)
+        if start and end:
+            if end <= start:
+                raise serializers.ValidationError("scheduled_end must be after scheduled_start.")
+            overlapping = MockExam.objects.filter(
+                scheduled_start__lt=end,
+                scheduled_end__gt=start,
+            )
+            if self.instance:
+                overlapping = overlapping.exclude(pk=self.instance.pk)
+            if overlapping.exists():
+                raise serializers.ValidationError(
+                    "Another exam is already scheduled during this time window."
+                )
+        return data
+
     def validate_pdf_file(self, value):
         max_size = 50 * 1024 * 1024  # 50 MB
         if value.size > max_size:

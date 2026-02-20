@@ -117,8 +117,12 @@ def save_answer(request, session_id):
         if session.status == ExamSession.Status.SUBMITTED:
             return Response({'error': 'Imtihon allaqachon topshirilgan'}, status=status.HTTP_403_FORBIDDEN)
 
-        elapsed_minutes = (timezone.now() - session.started_at).total_seconds() / 60
-        if elapsed_minutes >= session.exam.duration:
+        now = timezone.now()
+        elapsed_seconds = (now - session.started_at).total_seconds()
+        remaining_at_start = (session.exam.scheduled_end - session.started_at).total_seconds()
+        effective_duration_seconds = min(session.exam.duration * 60, remaining_at_start)
+
+        if elapsed_seconds > effective_duration_seconds + 30:  # 30s grace for network
             _submit_session(session, auto=True)
             return Response({'error': 'Vaqt tugadi, imtihon avtomatik topshirildi'}, status=status.HTTP_403_FORBIDDEN)
 
@@ -210,10 +214,13 @@ def session_results(request, session_id):
 # ---------------------------------------------------------------------------
 
 def _session_payload(session, exam):
+    # Late-start: effective duration = min(exam.duration, remaining window time)
+    remaining_minutes = (exam.scheduled_end - session.started_at).total_seconds() / 60
+    effective_duration = min(exam.duration, max(0, int(remaining_minutes)))
     return {
         'session_id': str(session.id),
         'started_at': session.started_at.isoformat(),
-        'duration': exam.duration,
+        'duration': effective_duration,
     }
 
 

@@ -42,6 +42,27 @@ def admin_exam_answers(request, exam_id):
 
 
 
+@api_view(['PUT', 'DELETE'])
+@permission_classes(admin_perm)
+def admin_exam_detail(request, exam_id):
+    exam = get_object_or_404(MockExam, id=exam_id)
+
+    if request.method == 'DELETE':
+        if ExamSession.objects.filter(exam=exam).exists():
+            return Response(
+                {'error': 'Cannot delete an exam that has been taken by students.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        exam.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    if request.method == 'PUT':
+        serializer = MockExamSerializer(exam, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(MockExamSerializer(exam).data)
+
+
 @api_view(['GET'])
 @permission_classes(admin_perm)
 def admin_exam_results(request, exam_id):
