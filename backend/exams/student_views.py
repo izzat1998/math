@@ -1,5 +1,6 @@
+from django.conf import settings
 from django.db import transaction
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -49,11 +50,24 @@ def exam_pdf(request, exam_id):
 
     if not exam.pdf_file:
         return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
+    # In production, use X-Accel-Redirect for Nginx to serve the file
+    if not settings.DEBUG:
+        response = HttpResponse()
+        response['X-Accel-Redirect'] = f'/protected-media/{exam.pdf_file.name}'
+        response['Content-Type'] = 'application/pdf'
+        response['Content-Disposition'] = f'inline; filename="{exam.title}.pdf"'
+        response['Cache-Control'] = 'private, max-age=3600'
+        return response
+
+    # In development, serve directly through Django
     try:
         f = exam.pdf_file.open()
     except FileNotFoundError:
         return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
-    return FileResponse(f, content_type='application/pdf')
+    response = FileResponse(f, content_type='application/pdf')
+    response['Cache-Control'] = 'private, max-age=3600'
+    return response
 
 
 @api_view(['POST'])
