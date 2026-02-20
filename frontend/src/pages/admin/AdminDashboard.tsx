@@ -124,6 +124,18 @@ export default function AdminDashboard() {
                 >
                   Natijalar
                 </Link>
+                <Link
+                  to={`/admin/exams/${exam.id}/edit`}
+                  className="flex-1 text-center text-xs font-medium py-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                >
+                  Tahrirlash
+                </Link>
+                <Link
+                  to={`/admin/exams/${exam.id}/analysis`}
+                  className="flex-1 text-center text-xs font-medium py-2 rounded-lg bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors"
+                >
+                  Tahlil
+                </Link>
               </div>
             </div>
           ))}

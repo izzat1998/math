@@ -41,6 +41,9 @@ export default function AdminLayout({ children, title, breadcrumbs }: AdminLayou
                 <NavLink to="/admin/exams/create" className={navLinkClass}>
                   Imtihon yaratish
                 </NavLink>
+                <NavLink to="/admin/analytics" className={navLinkClass}>
+                  Statistika
+                </NavLink>
               </nav>
               <button
                 onClick={handleLogout}

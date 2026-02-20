@@ -23,6 +23,8 @@ const ExamResultsPage = lazy(() => import('./pages/admin/ExamResultsPage'))
 const HistoryPage = lazy(() => import('./pages/HistoryPage'))
 const WaitingPage = lazy(() => import('./pages/WaitingPage'))
 const EditExamPage = lazy(() => import('./pages/admin/EditExamPage'))
+const ItemAnalysisPage = lazy(() => import('./pages/admin/ItemAnalysisPage'))
+const AnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage'))
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -119,6 +121,8 @@ function App() {
                   <Route path="/admin/exams/:examId/answers" element={<AdminRoute><ExamAnswersPage /></AdminRoute>} />
                   <Route path="/admin/exams/:examId/results" element={<AdminRoute><ExamResultsPage /></AdminRoute>} />
                   <Route path="/admin/exams/:examId/edit" element={<AdminRoute><EditExamPage /></AdminRoute>} />
+                  <Route path="/admin/exams/:examId/analysis" element={<AdminRoute><ItemAnalysisPage /></AdminRoute>} />
+                  <Route path="/admin/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
                 </Routes>
               </Suspense>
             </TelegramGate>
