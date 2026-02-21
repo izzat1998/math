@@ -123,6 +123,18 @@ def admin_item_analysis(request, exam_id):
             ).count(),
         })
 
+    # Single aggregated query for all items instead of 2 queries per item
+    from django.db.models import Count, Q
+    answer_stats = {}
+    for row in StudentAnswer.objects.filter(
+        session__exam=exam,
+        session__status='submitted',
+    ).values('question_number', 'sub_part').annotate(
+        total=Count('id'),
+        correct=Count('id', filter=Q(is_correct=True)),
+    ):
+        answer_stats[(row['question_number'], row['sub_part'])] = (row['total'], row['correct'])
+
     analysis = []
     for item in items:
         flag = None
@@ -131,19 +143,7 @@ def admin_item_analysis(request, exam_id):
         if item.outfit is not None and (item.outfit < 0.7 or item.outfit > 1.3):
             flag = 'misfit_outfit' if not flag else 'misfit_both'
 
-        total = StudentAnswer.objects.filter(
-            session__exam=exam,
-            session__status='submitted',
-            question_number=item.question_number,
-            sub_part=item.sub_part,
-        ).count()
-        correct = StudentAnswer.objects.filter(
-            session__exam=exam,
-            session__status='submitted',
-            question_number=item.question_number,
-            sub_part=item.sub_part,
-            is_correct=True,
-        ).count()
+        total, correct = answer_stats.get((item.question_number, item.sub_part), (0, 0))
 
         analysis.append({
             'question_number': item.question_number,
@@ -170,7 +170,7 @@ def admin_item_analysis(request, exam_id):
 @permission_classes(admin_perm)
 def admin_analytics(request):
     """Platform-wide analytics."""
-    from django.db.models import Count
+    from django.db.models import Count, Q
     from django.db.models.functions import TruncMonth
     from .models import Student, StudentRating, StudentAnswer
 
@@ -179,18 +179,17 @@ def admin_analytics(request):
     total_exams = MockExam.objects.count()
     total_sessions = ExamSession.objects.filter(status='submitted').count()
 
-    # Score distribution for most recent exam
+    # Score distribution for most recent exam — single annotated query
     latest_exam = MockExam.objects.order_by('-scheduled_end').first()
     score_distribution = []
     if latest_exam:
-        sessions = ExamSession.objects.filter(
-            exam=latest_exam, status='submitted'
+        score_distribution = list(
+            ExamSession.objects.filter(
+                exam=latest_exam, status='submitted'
+            ).annotate(
+                correct_count=Count('answers', filter=Q(answers__is_correct=True))
+            ).values_list('correct_count', flat=True)
         )
-        for session in sessions:
-            correct = StudentAnswer.objects.filter(
-                session=session, is_correct=True
-            ).count()
-            score_distribution.append(correct)
 
     # User growth (students registered per month)
     growth = list(

@@ -90,7 +90,7 @@ def _top_rated(current_student, limit):
     if cached is not None:
         # Use cached entries but personalize is_current_user
         entries = [dict(e) for e in cached['entries']]  # shallow copy each dict
-        trend_data = cached['trend_data']
+        trend_data = dict(cached['trend_data'])  # copy to prevent cache mutation
     else:
         ratings = list(
             StudentRating.objects

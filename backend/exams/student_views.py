@@ -1,5 +1,8 @@
+import re
+
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Count, Q
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -56,7 +59,8 @@ def exam_pdf(request, exam_id):
         response = HttpResponse()
         response['X-Accel-Redirect'] = f'/protected-media/{exam.pdf_file.name}'
         response['Content-Type'] = 'application/pdf'
-        response['Content-Disposition'] = f'inline; filename="{exam.title}.pdf"'
+        safe_title = re.sub(r'["\\\r\n]', '', exam.title)[:100]
+        response['Content-Disposition'] = f'inline; filename="{safe_title}.pdf"'
         response['Cache-Control'] = 'private, max-age=3600'
         return response
 
@@ -228,11 +232,14 @@ def session_results(request, session_id):
     if rasch_data and 'theta' in rasch_data:
         rasch_scaled = compute_rasch_scaled_score(rasch_data['theta'])
 
-    # Compute letter grade based on points (all submitted sessions for this exam)
-    all_sessions = ExamSession.objects.filter(
-        exam=session.exam, status=ExamSession.Status.SUBMITTED
+    # Compute letter grade — single annotated query instead of N+1
+    all_points = list(
+        ExamSession.objects.filter(
+            exam=session.exam, status=ExamSession.Status.SUBMITTED
+        ).annotate(
+            correct_count=Count('answers', filter=Q(answers__is_correct=True))
+        ).values_list('correct_count', flat=True)
     )
-    all_points = [compute_score(s)['points'] for s in all_sessions]
     letter_grade = compute_letter_grade(score['points'], all_points)
 
     return Response({

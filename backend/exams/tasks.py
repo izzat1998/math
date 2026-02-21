@@ -3,6 +3,7 @@ from datetime import timedelta
 
 
 from celery import shared_task
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -126,33 +127,32 @@ def calibrate_exam_rasch(exam_id):
     # Run JMLE calibration
     betas, thetas = estimate_item_difficulties(matrix)
 
-    # Save ItemDifficulty records
-    # Clear old ones first
-    ItemDifficulty.objects.filter(exam=exam).delete()
-
-    item_difficulties = []
-    for j, (q, sub) in enumerate(item_keys):
-        fit = compute_item_fit(j, matrix, thetas, betas)
-        item_difficulties.append(ItemDifficulty(
-            exam=exam,
-            question_number=q,
-            sub_part=sub,
-            beta=float(betas[j]),
-            infit=fit['infit'],
-            outfit=fit['outfit'],
-        ))
-    ItemDifficulty.objects.bulk_create(item_difficulties)
-
-    # Update each student's Rasch ability and scaled score
+    # Save ItemDifficulty records and update student ratings atomically
     from .models import EloHistory
-    for i, session in enumerate(sessions):
-        theta = float(thetas[i])
-        scaled = compute_rasch_scaled_score(theta)
-        StudentRating.objects.filter(
-            student=session.student
-        ).update(rasch_ability=theta, rasch_scaled=scaled)
-        # Update the EloHistory record with the calibrated rasch_after
-        EloHistory.objects.filter(session=session).update(rasch_after=scaled)
+    with transaction.atomic():
+        ItemDifficulty.objects.filter(exam=exam).delete()
+
+        item_difficulties = []
+        for j, (q, sub) in enumerate(item_keys):
+            fit = compute_item_fit(j, matrix, thetas, betas)
+            item_difficulties.append(ItemDifficulty(
+                exam=exam,
+                question_number=q,
+                sub_part=sub,
+                beta=float(betas[j]),
+                infit=fit['infit'],
+                outfit=fit['outfit'],
+            ))
+        ItemDifficulty.objects.bulk_create(item_difficulties)
+
+        # Update each student's Rasch ability and scaled score
+        for i, session in enumerate(sessions):
+            theta = float(thetas[i])
+            scaled = compute_rasch_scaled_score(theta)
+            StudentRating.objects.filter(
+                student=session.student
+            ).update(rasch_ability=theta, rasch_scaled=scaled)
+            EloHistory.objects.filter(session=session).update(rasch_after=scaled)
 
     logger.info('Exam %s: Rasch calibration complete for %d participants, %d items',
                 exam_id, len(sessions), n_items)
