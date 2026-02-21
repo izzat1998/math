@@ -7,6 +7,14 @@ import EloChart from '../components/EloChart'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useTelegram } from '../hooks/useTelegram'
 
+type LeaderboardTab = 'top_rated' | 'most_improved' | 'most_active'
+
+const TABS: { key: LeaderboardTab; label: string }[] = [
+  { key: 'top_rated', label: 'Eng yaxshi' },
+  { key: 'most_improved', label: "Eng ilg'or" },
+  { key: 'most_active', label: 'Eng faol' },
+]
+
 function DeltaIndicator({ delta }: { delta: number }) {
   if (delta > 0) {
     return (
@@ -40,6 +48,8 @@ function LeaderboardRow({
   exams,
   delta,
   isCurrent,
+  improvement,
+  activeTab,
 }: {
   rank: number
   name: string
@@ -47,6 +57,8 @@ function LeaderboardRow({
   exams: number
   delta: number
   isCurrent: boolean
+  improvement?: number
+  activeTab: LeaderboardTab
 }) {
   return (
     <div className={`flex items-center gap-3 px-4 py-3 border-b border-slate-100 last:border-b-0 ${
@@ -77,6 +89,13 @@ function LeaderboardRow({
       </div>
 
       <div className="flex items-center gap-2">
+        {activeTab === 'most_improved' && improvement != null && (
+          <span className={`text-[12px] font-bold mr-2 ${
+            improvement > 0 ? 'text-success-600' : 'text-danger-600'
+          }`}>
+            {improvement > 0 ? '+' : ''}{improvement}
+          </span>
+        )}
         <DeltaIndicator delta={delta} />
         <span className="text-sm font-extrabold text-slate-800">{elo}</span>
       </div>
@@ -88,6 +107,7 @@ export default function LeaderboardPage() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuth()
   const { isTelegram, showBackButton, hideBackButton } = useTelegram()
+  const [activeTab, setActiveTab] = useState<LeaderboardTab>('top_rated')
   const [data, setData] = useState<LeaderboardResponse | null>(null)
   const [eloHistory, setEloHistory] = useState<EloHistoryResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -101,11 +121,13 @@ export default function LeaderboardPage() {
   }, [isTelegram, showBackButton, hideBackButton, navigate])
 
   useEffect(() => {
-    api.get<LeaderboardResponse>('/leaderboard/')
+    setLoading(true)
+    setError(null)
+    api.get<LeaderboardResponse>(`/leaderboard/?tab=${activeTab}`)
       .then(({ data }) => setData(data))
       .catch(() => setError('Failed to load leaderboard'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeTab])
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -143,6 +165,22 @@ export default function LeaderboardPage() {
         <p className="relative z-10 text-[13px] font-semibold text-white/40 text-center tracking-wide uppercase">
           Reyting jadvali
         </p>
+
+        <div className="flex justify-center gap-1 mt-3 relative z-10">
+          {TABS.map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-1.5 rounded-full text-[12px] font-bold transition-all ${
+                activeTab === tab.key
+                  ? 'bg-white/20 text-white'
+                  : 'text-white/40 hover:text-white/60'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* My Elo card */}
@@ -179,6 +217,8 @@ export default function LeaderboardPage() {
                 exams={entry.exams_taken}
                 delta={entry.last_elo_delta}
                 isCurrent={entry.is_current_user}
+                improvement={entry.improvement}
+                activeTab={activeTab}
               />
             ))}
 
@@ -194,6 +234,8 @@ export default function LeaderboardPage() {
                   exams={data.my_entry.exams_taken}
                   delta={data.my_entry.last_elo_delta}
                   isCurrent
+                  improvement={data.my_entry.improvement}
+                  activeTab={activeTab}
                 />
               </>
             )}
