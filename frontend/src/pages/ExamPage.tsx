@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/client'
+import { enqueue, flush, onQueueChange, clearQueue, getPendingCount } from '../api/answerQueue'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useTelegram } from '../hooks/useTelegram'
@@ -110,6 +111,20 @@ export default function ExamPage() {
   const [pageInfo, setPageInfo] = useState<PageInfo | null>(null)
   const [myElo, setMyElo] = useState<number | null>(isMock ? 1200 : null)
   const isSubmitting = useRef(false)
+  const [pendingCount, setPendingCount] = useState(getPendingCount)
+
+  // Subscribe to answer queue changes
+  useEffect(() => {
+    const unsubscribe = onQueueChange(setPendingCount)
+    return unsubscribe
+  }, [])
+
+  // Flush queued answers when coming back online
+  useEffect(() => {
+    const handleOnline = () => { flush() }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [])
 
   useEffect(() => {
     if (isTelegram) {
@@ -216,7 +231,15 @@ export default function ExamPage() {
           question_number: questionNumber,
           sub_part: subPart,
           answer,
-        }).catch(() => toast('Javob saqlanmadi', 'error'))
+        }).catch(() => {
+          enqueue({
+            sessionId: session.session_id,
+            questionNumber,
+            subPart,
+            answer,
+            timestamp: Date.now(),
+          })
+        })
       }
 
       // MCQ answers (no sub_part, questions 1-35): save immediately
@@ -228,7 +251,7 @@ export default function ExamPage() {
         debounceTimers.current[key] = setTimeout(sendToServer, 600)
       }
     },
-    [session, hapticImpact, toast, isMock]
+    [session, hapticImpact, isMock]
   )
 
   const handleSubmit = useCallback(async () => {
@@ -248,6 +271,9 @@ export default function ExamPage() {
     } else {
       if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) { isSubmitting.current = false; return }
     }
+
+    // Flush the offline answer queue first
+    await flush()
 
     // Flush all pending debounced answer saves before submitting
     const pendingKeys = Object.keys(debounceTimers.current)
@@ -278,6 +304,7 @@ export default function ExamPage() {
       setMainButtonLoading(true)
       await api.post(`/sessions/${session.session_id}/submit/`)
       setSubmitted(true)
+      clearQueue(session.session_id)
       hapticNotification('success')
       hideMainButton()
       navigate(`/exam/${examId}/waiting`, { state: { sessionId: session.session_id } })
@@ -305,6 +332,9 @@ export default function ExamPage() {
   const handleExpire = useCallback(async () => {
     if (isSubmitting.current || !session || submitted) return
     isSubmitting.current = true
+
+    // Flush the offline answer queue first
+    await flush()
 
     // Flush all pending debounced answer saves before submitting
     const pendingKeys = Object.keys(debounceTimers.current)
@@ -335,6 +365,7 @@ export default function ExamPage() {
     await Promise.all(flushPromises)
 
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
+      clearQueue(session.session_id)
       setSubmitted(true)
       hapticNotification('warning')
       toast('Vaqt tugadi! Javoblar topshirildi.', 'success')
@@ -423,7 +454,7 @@ export default function ExamPage() {
   if (isMobile) {
     return (
       <div className="h-screen-dvh flex flex-col bg-slate-50">
-        <ConnectionBanner />
+        <ConnectionBanner pendingAnswers={pendingCount} />
         {/* Header */}
         {!isTelegram ? (
           <div className="flex items-center justify-between px-3 py-2.5 bg-primary-800 z-30 shrink-0">
@@ -456,7 +487,7 @@ export default function ExamPage() {
 
         {/* PDF viewer */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <PdfViewer url={`/exams/${examId}/pdf/`} currentQuestion={currentQuestion} />
+          <PdfViewer url={`/exams/${examId}/pdf/?v=2`} currentQuestion={currentQuestion} />
         </div>
 
         {/* Answer bar */}
@@ -475,7 +506,7 @@ export default function ExamPage() {
   // ── Desktop layout ──
   return (
     <div className="h-screen-dvh flex flex-col bg-slate-50">
-      <ConnectionBanner />
+      <ConnectionBanner pendingAnswers={pendingCount} />
       <div className="flex items-center justify-between px-5 py-2.5 bg-white border-b border-slate-200/80 z-30 shrink-0">
         <div className="flex items-center gap-3">
           <button
@@ -513,7 +544,7 @@ export default function ExamPage() {
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-[65%] h-full">
-          <PdfViewer url={`/exams/${examId}/pdf/`} currentQuestion={activeQuestion} onPageInfo={setPageInfo} />
+          <PdfViewer url={`/exams/${examId}/pdf/?v=2`} currentQuestion={activeQuestion} onPageInfo={setPageInfo} />
         </div>
         <div className="w-[35%] border-l border-slate-200/80 bg-white flex flex-col">
           <AnswerSidebar
