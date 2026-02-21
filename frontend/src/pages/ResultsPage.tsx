@@ -126,7 +126,7 @@ export default function ResultsPage() {
       setResults(data)
       hapticNotification('success')
     }).catch((err) => {
-      setError('Failed to load results. Please try again.')
+      setError("Natijalarni yuklashda xatolik. Qaytadan urinib ko'ring.")
       console.error(err)
     })
   }, [sessionId, hapticNotification])

@@ -357,8 +357,8 @@ export default function DashboardPage() {
             Reyting jadvali
           </Link>
           <span className="w-1 h-1 rounded-full bg-slate-200" />
-          <Link to="/admin" className="hover:text-primary-500 transition-colors">
-            Admin panel
+          <Link to="/history" className="hover:text-primary-500 transition-colors">
+            Tarix
           </Link>
         </div>
       </div>

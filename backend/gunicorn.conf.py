@@ -1,7 +1,8 @@
 import multiprocessing
 
-# Workers: 2 * CPU cores + 1
-workers = multiprocessing.cpu_count() * 2 + 1
+# Workers: 2 * CPU cores + 1, capped to stay within Postgres max_connections
+# With gthread + 4 threads per worker, max DB connections = workers * threads
+workers = min(multiprocessing.cpu_count() * 2 + 1, 9)
 worker_class = 'gthread'
 threads = 4
 

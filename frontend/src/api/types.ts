@@ -135,7 +135,7 @@ export interface Question {
   image?: string
   topic: string
   difficulty: number
-  answer_type: 'mcq' | 'free_text'
+  answer_type: 'multiple_choice' | 'free_response'
   choices?: string[]
 }
 
