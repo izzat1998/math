@@ -21,7 +21,7 @@ export interface AnswerBreakdown {
   sub_part: string | null
   is_correct: boolean
   student_answer: string
-  correct_answer: string
+  correct_answer?: string  // only present after exam closes
 }
 
 export interface EloChange {
@@ -35,14 +35,13 @@ export interface ExamResults {
   exercises_total: number
   points: number
   points_total: number
-  rasch_scaled: number | null
-  letter_grade: string
+  rasch_scaled?: number | null      // only after exam closes + Rasch calibration
+  letter_grade?: string | null      // only after exam closes + Rasch calibration
   is_auto_submitted: boolean
   exam_closed: boolean
   exam_title: string
   breakdown: AnswerBreakdown[]
-  elo?: EloChange
-  message?: string
+  elo?: EloChange                   // only after exam closes
 }
 
 // Dashboard types

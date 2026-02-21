@@ -227,28 +227,19 @@ class TestStreakIntegration(TestCase):
 
 
 class TestLetterGradeDistribution(TestCase):
-    """Test percentile-based letter grade computation."""
+    """Test criterion-referenced letter grade (Milliy Sertifikat table)."""
 
-    def test_single_student_gets_top_grade(self):
-        """With only one student, they should get A+."""
-        grade = compute_letter_grade(50, [50])
-        self.assertEqual(grade, 'A+')
+    def test_high_rasch_gets_a_plus(self):
+        self.assertEqual(compute_letter_grade(72), 'A+')
 
-    def test_grade_distribution(self):
-        """Verify grades distribute correctly across percentiles."""
-        scores = list(range(1, 101))  # 100 students with scores 1-100
+    def test_mid_rasch_gets_b(self):
+        self.assertEqual(compute_letter_grade(57), 'B')
 
-        # Top scorer
-        top_grade = compute_letter_grade(100, scores)
-        self.assertEqual(top_grade, 'A+')
+    def test_low_rasch_gets_d(self):
+        self.assertEqual(compute_letter_grade(30), 'D')
 
-        # Bottom scorer
-        bottom_grade = compute_letter_grade(1, scores)
-        self.assertEqual(bottom_grade, 'D')
-
-        # Middle scorer
-        mid_grade = compute_letter_grade(50, scores)
-        self.assertIn(mid_grade, ['B', 'C+'])
+    def test_none_rasch_returns_none(self):
+        self.assertIsNone(compute_letter_grade(None))
 
 
 class TestExamSessionConstraints(TestCase):

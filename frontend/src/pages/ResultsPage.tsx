@@ -7,25 +7,34 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { useTelegram } from '../hooks/useTelegram'
 import { useMobileDetect } from '../hooks/useMobileDetect'
 
+function scoreStrokeColor(progress: number): string {
+  if (progress >= 0.7) return 'url(#scoreGradient)'
+  if (progress >= 0.5) return '#f59e0b'
+  return '#f43f5e'
+}
+
+function scoreBadgeClass(progress: number): string {
+  if (progress >= 0.7) return 'bg-accent-500/10 text-accent-600'
+  if (progress >= 0.5) return 'bg-warning-500/10 text-warning-600'
+  return 'bg-danger-500/10 text-danger-600'
+}
+
 function ScoreCircle({ value, total, size = 160 }: { value: number; total: number; size?: number }) {
   const radius = (size - 20) / 2
   const circumference = 2 * Math.PI * radius
   const progress = total > 0 ? value / total : 0
   const offset = circumference * (1 - progress)
   const percent = Math.round(progress * 100)
-  const isGood = progress >= 0.7
 
   return (
     <div className="relative animate-count-up" style={{ width: size, height: size }}>
-      {/* Glow effect for good scores */}
-      {isGood && (
+      {progress >= 0.7 && (
         <div
           className="absolute inset-0 rounded-full blur-2xl opacity-20"
           style={{ background: `radial-gradient(circle, #06b6d4 0%, transparent 70%)` }}
         />
       )}
       <svg width={size} height={size} className="transform -rotate-90">
-        {/* Background ring */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -35,7 +44,6 @@ function ScoreCircle({ value, total, size = 160 }: { value: number; total: numbe
           strokeWidth={10}
           className="text-slate-100"
         />
-        {/* Progress ring */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -46,11 +54,7 @@ function ScoreCircle({ value, total, size = 160 }: { value: number; total: numbe
           strokeDashoffset={offset}
           strokeLinecap="round"
           className="transition-all duration-1000 ease-out"
-          style={{
-            stroke: isGood
-              ? 'url(#scoreGradient)'
-              : progress >= 0.5 ? '#f59e0b' : '#f43f5e',
-          }}
+          style={{ stroke: scoreStrokeColor(progress) }}
         />
         <defs>
           <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -66,11 +70,7 @@ function ScoreCircle({ value, total, size = 160 }: { value: number; total: numbe
         <span className="text-sm font-bold text-slate-400 mt-0.5">
           / {total}
         </span>
-        <span className={`text-xs font-bold mt-1.5 px-2 py-0.5 rounded-full ${
-          isGood ? 'bg-accent-500/10 text-accent-600' :
-          progress >= 0.5 ? 'bg-warning-500/10 text-warning-600' :
-          'bg-danger-500/10 text-danger-600'
-        }`}>
+        <span className={`text-xs font-bold mt-1.5 px-2 py-0.5 rounded-full ${scoreBadgeClass(progress)}`}>
           {percent}%
         </span>
       </div>
@@ -103,6 +103,12 @@ function SubPartDetail({ label, part }: { label: string; part: AnswerBreakdown |
       <span>{label}) Siz: <span className="font-semibold text-slate-700">{part.student_answer}</span></span>
     </div>
   )
+}
+
+function scoreMessage(progress: number): string {
+  if (progress >= 0.7) return 'Yaxshi natija!'
+  if (progress >= 0.5) return "O'rtacha natija"
+  return 'Mashq qilishda davom eting'
 }
 
 function getGradeColor(grade: string): string {
@@ -156,49 +162,6 @@ export default function ResultsPage() {
 
   if (!results) {
     return <LoadingSpinner fullScreen label="Natijalar yuklanmoqda..." />
-  }
-
-  // Exam still open — show waiting screen
-  if (!results.exam_closed) {
-    return (
-      <div className="min-h-screen-dvh bg-slate-50 bg-noise flex flex-col items-center justify-center px-4">
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200/60 p-8 max-w-sm w-full text-center">
-          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-primary-50 flex items-center justify-center">
-            <svg className="w-8 h-8 text-primary-500 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-            </svg>
-          </div>
-          <h2 className="text-lg font-bold text-slate-800 mb-2">
-            Imtihon davom etmoqda
-          </h2>
-          <p className="text-sm text-slate-500 mb-4">
-            {results.message || "Natijalar imtihon yopilgandan keyin e'lon qilinadi"}
-          </p>
-          {results.exam_title && (
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-              {results.exam_title}
-            </p>
-          )}
-          {results.is_auto_submitted && (
-            <div className="mt-4 flex items-center justify-center gap-2 p-2 bg-warning-50 border border-warning-200/50 rounded-xl">
-              <span className="text-warning-500 text-sm">⚡</span>
-              <p className="text-[12px] text-warning-700 font-medium">Vaqt tugadi — avtomatik topshirildi</p>
-            </div>
-          )}
-          {!isTelegram && (
-            <Link
-              to="/"
-              className="mt-5 inline-flex items-center gap-1.5 text-sm text-primary-600 font-semibold hover:text-primary-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-              </svg>
-              Bosh sahifaga qaytish
-            </Link>
-          )}
-        </div>
-      </div>
-    )
   }
 
   // Count unique question numbers to avoid inflating totals from sub-parts (a, b)
@@ -255,11 +218,7 @@ export default function ResultsPage() {
       <div className="max-w-2xl mx-auto px-4 animate-slide-up" style={{ animationDelay: '0.15s', animationFillMode: 'both' }}>
         {/* Score message */}
         <p className="text-center text-sm font-semibold text-slate-400 mb-4">
-          {progress >= 0.7
-            ? 'Yaxshi natija!'
-            : progress >= 0.5
-              ? 'O\'rtacha natija'
-              : 'Mashq qilishda davom eting'}
+          {scoreMessage(progress)}
         </p>
 
         {/* Stats chips */}
@@ -278,10 +237,10 @@ export default function ResultsPage() {
           </span>
         </div>
 
-        {/* Rasch score + Letter grade */}
-        {results.exam_closed && (results.rasch_scaled !== null || results.letter_grade) && (
+        {/* Rasch score + Letter grade (only after exam closes + calibration) */}
+        {results.exam_closed && (results.rasch_scaled != null || results.letter_grade) && (
           <div className="grid grid-cols-2 gap-3 mb-4">
-            {results.rasch_scaled !== null && (
+            {results.rasch_scaled != null && (
               <div className="bg-white rounded-2xl p-4 text-center shadow-sm border border-slate-200/60">
                 <div className="text-3xl font-extrabold text-primary-600 tracking-tight">
                   {results.rasch_scaled.toFixed(0)}
@@ -297,6 +256,18 @@ export default function ResultsPage() {
                 <div className="text-xs font-semibold text-slate-400 mt-1">Baho</div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Grade pending banner (exam still open) */}
+        {!results.exam_closed && (
+          <div className="mb-4 flex items-center gap-2.5 p-3 bg-primary-50 border border-primary-200/50 rounded-2xl">
+            <svg className="w-5 h-5 text-primary-500 shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            <p className="text-[13px] text-primary-700 font-medium">
+              Baho va Rasch ball imtihon yopilgandan keyin e'lon qilinadi
+            </p>
           </div>
         )}
 

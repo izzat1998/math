@@ -114,45 +114,31 @@ def compute_rasch_score(session):
     }
 
 
-def compute_letter_grade(score, all_scores):
-    """
-    Compute percentile-based letter grade.
-    A+ (top 10%), A (top 20%), B+ (top 35%), B (top 50%),
-    C+ (top 65%), C (top 80%), below = D
-    """
-    if not all_scores:
-        return 'D'
+_GRADE_TABLE = [
+    (70, 'A+'),
+    (64, 'A'),
+    (60, 'B+'),
+    (55, 'B'),
+    (50, 'C+'),
+    (46, 'C'),
+]
 
-    sorted_scores = sorted(all_scores, reverse=True)
-    total = len(sorted_scores)
-    # Rank = number of scores strictly greater than this score + 1
-    rank = sum(1 for s in sorted_scores if s > score) + 1
-    percentile_rank = (rank - 1) / total  # 0.0 = best, 1.0 = worst
 
-    if percentile_rank <= 0.10:
-        return 'A+'
-    elif percentile_rank <= 0.20:
-        return 'A'
-    elif percentile_rank <= 0.35:
-        return 'B+'
-    elif percentile_rank <= 0.50:
-        return 'B'
-    elif percentile_rank <= 0.65:
-        return 'C+'
-    elif percentile_rank <= 0.80:
-        return 'C'
-    else:
-        return 'D'
+def compute_letter_grade(rasch_scaled):
+    """Compute letter grade from Rasch scaled score (0-75) using Milliy Sertifikat fixed grade table."""
+    if rasch_scaled is None:
+        return None
+
+    for threshold, grade in _GRADE_TABLE:
+        if rasch_scaled >= threshold:
+            return grade
+    return 'D'
 
 
 MIN_RASCH_PARTICIPANTS = 10
 
 
 def compute_rasch_scaled_score(theta, min_theta=-4.0, max_theta=4.0):
-    """
-    Convert Rasch theta (logits) to 0-100 scaled score.
-    Linear mapping from [min_theta, max_theta] to [0, 100].
-    Clamps to [0, 100].
-    """
-    scaled = ((theta - min_theta) / (max_theta - min_theta)) * 100
-    return max(0.0, min(100.0, round(scaled, 1)))
+    """Convert Rasch theta (logits) to 0-75 Milliy Sertifikat scale. Clamps to [0, 75]."""
+    scaled = ((theta - min_theta) / (max_theta - min_theta)) * 75
+    return max(0.0, min(75.0, round(scaled, 1)))

@@ -64,7 +64,6 @@ class Student(models.Model):
         return self.full_name
 
 
-
 class ExamSession(models.Model):
     class Status(models.TextChoices):
         IN_PROGRESS = 'in_progress', 'Jarayonda'
@@ -105,7 +104,7 @@ class StudentRating(models.Model):
     elo = models.IntegerField(default=1200)
     exams_taken = models.IntegerField(default=0)
     rasch_ability = models.FloatField(default=0.0, help_text="Current Rasch theta (logits)")
-    rasch_scaled = models.FloatField(default=50.0, help_text="Rasch score on 0-100 scale")
+    rasch_scaled = models.FloatField(default=37.5, help_text="Rasch score on 0-75 scale (Milliy Sertifikat)")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -122,8 +121,8 @@ class EloHistory(models.Model):
     elo_before = models.IntegerField()
     elo_after = models.IntegerField()
     elo_delta = models.IntegerField()
-    rasch_before = models.FloatField(default=50.0, help_text="Rasch scaled score before this exam")
-    rasch_after = models.FloatField(default=50.0, help_text="Rasch scaled score after this exam")
+    rasch_before = models.FloatField(default=37.5, help_text="Rasch score (0-75) before this exam")
+    rasch_after = models.FloatField(default=37.5, help_text="Rasch score (0-75) after this exam")
     score_percent = models.FloatField()
     exam_avg_percent = models.FloatField()
     k_factor = models.IntegerField()

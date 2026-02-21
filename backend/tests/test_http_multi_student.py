@@ -63,20 +63,13 @@ class TestMultiStudentExam(TestCase):
         # (not strictly monotonic due to opponent rating, but top > bottom)
         self.assertGreater(elos[-1], elos[0])
 
-    def test_letter_grades_distribute(self):
-        """With 10 students, grades should span from A+ to D."""
-        for session in self.sessions:
-            _submit_session(session)
-
-        all_points = [
-            StudentAnswer.objects.filter(session=s, is_correct=True).count()
-            for s in self.sessions
-        ]
-
-        grades = [compute_letter_grade(p, all_points) for p in all_points]
-        # Best student should get A+, worst should get D
-        self.assertEqual(grades[-1], 'A+')
-        self.assertEqual(grades[0], 'D')
+    def test_letter_grades_from_rasch_scale(self):
+        """Letter grades are criterion-referenced (fixed table), not percentile."""
+        # Verify grade boundaries directly
+        self.assertEqual(compute_letter_grade(72), 'A+')
+        self.assertEqual(compute_letter_grade(65), 'A')
+        self.assertEqual(compute_letter_grade(57), 'B')
+        self.assertEqual(compute_letter_grade(30), 'D')
 
 
 class TestMultiStudentHTTP(TestCase):

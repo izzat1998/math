@@ -1,9 +1,5 @@
-import re
-
-from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, Q
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -21,7 +17,6 @@ student_auth = [StudentJWTAuthentication]
 student_perm = [IsStudent]
 
 ALREADY_SUBMITTED_MSG = 'Allaqachon topshirilgan'
-
 
 
 @api_view(['GET'])
@@ -54,23 +49,13 @@ def exam_pdf(request, exam_id):
     if not exam.pdf_file:
         return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
 
-    # In production, use X-Accel-Redirect for Nginx to serve the file
-    if not settings.DEBUG:
-        response = HttpResponse()
-        response['X-Accel-Redirect'] = f'/protected-media/{exam.pdf_file.name}'
-        response['Content-Type'] = 'application/pdf'
-        safe_title = re.sub(r'["\\\r\n]', '', exam.title)[:100]
-        response['Content-Disposition'] = f'inline; filename="{safe_title}.pdf"'
-        response['Cache-Control'] = 'private, max-age=3600'
-        return response
-
-    # In development, serve directly through Django
     try:
         f = exam.pdf_file.open()
     except FileNotFoundError:
         return Response({'error': 'PDF fayl topilmadi'}, status=status.HTTP_404_NOT_FOUND)
+
     response = FileResponse(f, content_type='application/pdf')
-    response['Cache-Control'] = 'private, max-age=3600'
+    response['Cache-Control'] = 'no-store'
     return response
 
 
@@ -187,23 +172,9 @@ def session_results(request, session_id):
 
     exam_closed = timezone.now() > session.exam.scheduled_end
 
-    # Hold back all results until the exam window closes
-    if not exam_closed:
-        return Response({
-            'exam_closed': False,
-            'exam_title': session.exam.title,
-            'is_auto_submitted': session.is_auto_submitted,
-            'message': 'Natijalar imtihon yopilgandan keyin e\'lon qilinadi',
-        })
-
+    # Raw score is always available immediately after submission
     score = compute_score(session)
     answers = StudentAnswer.objects.filter(session=session).order_by('question_number', 'sub_part')
-
-    # Get correct answers for breakdown
-    correct_answers_map = {
-        (ca.question_number, ca.sub_part): ca.correct_answer
-        for ca in CorrectAnswer.objects.filter(exam=session.exam)
-    }
 
     breakdown = [
         {
@@ -211,47 +182,48 @@ def session_results(request, session_id):
             'sub_part': a.sub_part,
             'is_correct': a.is_correct,
             'student_answer': a.answer,
-            'correct_answer': correct_answers_map.get((a.question_number, a.sub_part), ''),
         }
         for a in answers
     ]
 
-    elo_data = None
-    try:
-        snapshot = session.elo_snapshot
-        elo_data = {
-            'elo_before': snapshot.elo_before,
-            'elo_after': snapshot.elo_after,
-            'elo_delta': snapshot.elo_delta,
-        }
-    except EloHistory.DoesNotExist:
-        pass
-
-    rasch_data = compute_rasch_score(session)
-    rasch_scaled = None
-    if rasch_data and 'theta' in rasch_data:
-        rasch_scaled = compute_rasch_scaled_score(rasch_data['theta'])
-
-    # Compute letter grade — single annotated query instead of N+1
-    all_points = list(
-        ExamSession.objects.filter(
-            exam=session.exam, status=ExamSession.Status.SUBMITTED
-        ).annotate(
-            correct_count=Count('answers', filter=Q(answers__is_correct=True))
-        ).values_list('correct_count', flat=True)
-    )
-    letter_grade = compute_letter_grade(score['points'], all_points)
-
-    return Response({
+    result = {
         **score,
-        'rasch_scaled': rasch_scaled,
-        'letter_grade': letter_grade,
         'is_auto_submitted': session.is_auto_submitted,
         'exam_closed': exam_closed,
         'exam_title': session.exam.title,
         'breakdown': breakdown,
-        'elo': elo_data,
-    })
+    }
+
+    # Rasch score, letter grade, ELO, and correct answers are held back
+    # until the exam window closes (prevents leaking info to others)
+    if exam_closed:
+        correct_answers_map = {
+            (ca.question_number, ca.sub_part): ca.correct_answer
+            for ca in CorrectAnswer.objects.filter(exam=session.exam)
+        }
+        for item in result['breakdown']:
+            key = (item['question_number'], item['sub_part'])
+            item['correct_answer'] = correct_answers_map.get(key, '')
+
+        rasch_data = compute_rasch_score(session)
+        rasch_scaled = compute_rasch_scaled_score(rasch_data['theta']) if rasch_data else None
+
+        result['rasch_scaled'] = rasch_scaled
+        result['letter_grade'] = compute_letter_grade(rasch_scaled)
+
+        elo_data = None
+        try:
+            snapshot = session.elo_snapshot
+            elo_data = {
+                'elo_before': snapshot.elo_before,
+                'elo_after': snapshot.elo_after,
+                'elo_delta': snapshot.elo_delta,
+            }
+        except EloHistory.DoesNotExist:
+            pass
+        result['elo'] = elo_data
+
+    return Response(result)
 
 
 # ---------------------------------------------------------------------------
