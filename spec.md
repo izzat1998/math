@@ -1,5 +1,63 @@
 # Math Mock Exam Platform — Full Specification
 
+## Implementation Status
+
+> Last synced: 2026-02-21
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Core Exam Flow** | | |
+| PDF-based timed exams (45q/150min) | Done | Full lifecycle working |
+| Answer auto-save (debounced) | Done | 500ms debounce on typing + save on blur |
+| Timer with 30-second warning | Done | Red flash at critical threshold |
+| Auto-submit on expiry | Done | Celery beat (60s) + frontend timer |
+| Late-start reduced time | Done | effective_duration = min(exam, remaining window) + 30s grace |
+| One attempt per student per exam | Done | DB unique constraint (student, exam) |
+| Post-submission waiting page | Done | Countdown to exam window close |
+| Results after window closes | Done | Correct answers + breakdown shown |
+| Progress indicator | Done | Answered count shown (no skipped/unanswered distinction) |
+| Connection loss banner | Needs verification | ConnectionBanner component exists, retry logic unverified |
+| **Scoring** | | |
+| Raw score (points + exercises) | Done | 55 points max, 45 exercises max |
+| Rasch scaled score (0-100) | Done | Linear map theta [-4,4] to [0,100] |
+| Letter grades (percentile-based) | Done | A+ through D, computed after window closes |
+| ELO rating system | Done | K=40 first 5 exams, K=20 after, floor=100 |
+| Rasch fallback (<10 participants) | Not built | Constant MIN_RASCH_PARTICIPANTS=10 exists but unused |
+| **Leaderboard** | | |
+| Top Rated tab | Done | Cached 5 minutes, shows top 50 + own rank |
+| Most Improved tab | Partial | Backend helper function exists, not wired to API |
+| Most Active tab | Partial | Backend helper function exists, not wired to API |
+| Privacy (mask names 51+) | Not built | All names visible regardless of rank |
+| **Gamification** | | |
+| Exam streaks | Done | Consecutive exam participation tracking |
+| Achievement system | Done | Streak, milestone, improvement badges |
+| Achievement notifications | Done | Toast in Mini App on badge earn |
+| **Practice Mode** | | |
+| Light mode (6q/30min) | Done | Balanced topic selection |
+| Medium mode (10q/60min) | Done | Balanced topic selection |
+| **Dashboard & History** | | |
+| Student dashboard | Done | ELO, Rasch, streaks, achievements, upcoming exam |
+| Exam history | Done | Past exams with scores and ELO delta |
+| ELO history chart | Done | Rating progression visualization |
+| **Admin** | | |
+| Exam CRUD | Done | Create, edit, delete with PDF upload |
+| Schedule edit protection | Done | Locked once students have started |
+| Answer key management | Done | Bulk upload correct answers |
+| Results per exam | Done | Student scores table |
+| Item analysis (Rasch) | Done | Difficulty, infit/outfit, flagging |
+| Analytics dashboard | Partial | Score distribution + user growth done, retention trends missing |
+| **Telegram Integration** | | |
+| Mini App auth (initData HMAC) | Done | Auto-register + JWT |
+| Bot DM notifications | Done | On exam creation |
+| Channel post notifications | Done | On exam creation |
+| Name sync from Telegram | Needs verification | Spec says auto-update on every open, unverified |
+| Haptic feedback | Done | Via useTelegram hook |
+| **Infrastructure** | | |
+| PostgreSQL connection pooling | Done | django-db-connection-pool |
+| Redis caching | Done | Leaderboard + auth object caching |
+| Celery beat scheduler | Done | Auto-submit every 60s |
+| PDF serving optimization | Done | Nginx X-Accel-Redirect in production |
+
 ## Overview
 
 A **Telegram Mini App** for administering timed math mock exams with auto-grading, psychometric evaluation (Rasch IRT model), and competitive ranking (ELO). Designed for students preparing for university entrance exams and teachers pursuing certification.
@@ -86,6 +144,7 @@ Scoring is based on the **Rasch psychometric model**:
 - Input correct answers for all 45 questions (35 MCQ + 10×2 free-response)
 - Can bulk upload or edit individual answers
 - Admin can edit/delete exams at any time (full edit/delete capability)
+- **Schedule lock:** Once any student has started an exam, the `scheduled_start`, `scheduled_end`, and `duration` fields cannot be edited
 
 ### 3. Notification Sent
 - **Telegram bot DM** sent to all registered users when new exam is created
@@ -107,7 +166,7 @@ Scoring is based on the **Rasch psychometric model**:
 - PDF viewer with page navigation (current layout retained for mobile)
 - Answer sidebar with MCQ buttons (1–35) and free text inputs (36–45)
 - **Progress indicator:** essential visual display of answered/skipped/unanswered questions
-- **Auto-save:** on blur (leaving field) AND debounced 1-2 seconds after typing stops
+- **Auto-save:** on blur (leaving field) AND debounced after typing stops
 - Free navigation between questions (non-sequential)
 - Once submitted, no further changes accepted
 
@@ -625,30 +684,20 @@ Unique constraint: (student, achievement)
 6. **Full result details** — right/wrong AND correct answers shown
 7. **PDF hidden after exam** — no post-exam access
 8. **Auto-save on blur + debounced** — double safety for answer persistence
+9. **Schedule lock** — exam schedule fields locked once students have started
 9. **30-second visual warning** — timer flashes red, no sound
 10. **Weekly exam cadence** — new exam published every week
 11. **Practice is separate** — no impact on ELO or Rasch
 
 ---
 
-## Things to Remove from Current Codebase
+## Remaining Work
 
-- **Invite code system** — no longer needed (Telegram-only access, all exams public)
-- **Web login page** — users don't access via web
-- **Web signup/invite code auth endpoint** — replaced by Telegram-only auth
-- **`open_at`/`close_at` fields** — replace with `scheduled_start`/`scheduled_end`
-- **`is_scheduled` flag** — all exams are always scheduled
+Features that are planned but not yet fully implemented:
 
-## Things to Add
-
-- **Gamification system** — streaks, milestones, improvement badges
-- **Telegram bot notifications** — DM + channel post on exam creation
-- **Admin analytics dashboard** — score distributions, item analysis, user growth
-- **Admin item analysis page** — Rasch difficulty/fit visualization
-- **Dashboard redesign** — prominent Rasch score, streak, badges
-- **Exam history page** — simple list with scores
-- **Progress indicator** — answered/skipped/unanswered in exam UI
-- **30-second timer warning** — visual flashing
-- **Rasch scaled score (0–100)** — conversion from theta logits
-- **Admin exam edit/delete** — full CRUD
-- **Performance optimization** — handle 1000+ concurrent users
+- **Leaderboard tabs** — wire existing backend helpers (`_most_improved`, `_most_active`) to API with `?tab=` parameter, add tab switching in frontend
+- **Leaderboard privacy** — mask names for users ranked 51+; users outside top 50 see only their own rank
+- **Rasch fallback** — use `MIN_RASCH_PARTICIPANTS` constant to fall back to raw percentage when <10 participants
+- **Analytics retention trends** — add retention/churn metrics to admin analytics dashboard
+- **Verify: name sync** — confirm Telegram name auto-updates on every Mini App open
+- **Verify: connection retry** — confirm ConnectionBanner triggers answer re-save on reconnection
