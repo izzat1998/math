@@ -45,6 +45,21 @@ class Student(models.Model):
     telegram_id = models.BigIntegerField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    @property
+    def is_authenticated(self):
+        """Required for DRF compatibility (throttling, permissions check request.user.is_authenticated)."""
+        return True
+
+    @property
+    def is_anonymous(self):
+        """Required for DRF/view compatibility (leaderboard checks is_anonymous)."""
+        return False
+
+    @property
+    def is_staff(self):
+        """Required for DRF compatibility (IsAdminUser checks request.user.is_staff)."""
+        return False
+
     def __str__(self):
         return self.full_name
 

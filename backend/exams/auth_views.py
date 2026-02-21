@@ -11,8 +11,14 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
+from rest_framework_simplejwt.exceptions import AuthenticationFailed as JWTAuthenticationFailed
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer as BaseTokenRefreshSerializer
+from rest_framework_simplejwt.settings import api_settings as jwt_settings
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.utils import datetime_from_epoch
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from .models import Student
 from .permissions import StudentJWTAuthentication, IsStudent
@@ -24,6 +30,58 @@ class AuthRateThrottle(AnonRateThrottle):
     rate = '10/minute'
 
 TELEGRAM_AUTH_MAX_AGE_SECONDS = 300  # 5 minutes
+
+
+def _blacklist_student_token(token):
+    """Blacklist a student token without the User lookup that simplejwt requires.
+
+    simplejwt 5.5's built-in blacklist() does User.objects.get(id=<student_uuid>)
+    which raises ValueError because User.id is an integer. This bypasses the User
+    lookup and directly creates OutstandingToken + BlacklistedToken records.
+    """
+    jti = token.payload[jwt_settings.JTI_CLAIM]
+    exp = token.payload['exp']
+    outstanding, _ = OutstandingToken.objects.get_or_create(
+        jti=jti,
+        defaults={
+            'user': None,
+            'token': str(token),
+            'expires_at': datetime_from_epoch(exp),
+        },
+    )
+    return BlacklistedToken.objects.get_or_create(token=outstanding)
+
+
+class StudentTokenRefreshSerializer(BaseTokenRefreshSerializer):
+    """Token refresh that validates Student instead of Django User.
+
+    simplejwt 5.5's default serializer does User.objects.get(id=<student_uuid>),
+    which fails because our tokens carry a Student UUID in the 'student_id' claim
+    while Django's User.id is an integer.
+    """
+
+    def validate(self, attrs):
+        refresh = self.token_class(attrs["refresh"])
+
+        student_id = refresh.payload.get('student_id')
+        if student_id and not Student.objects.filter(id=student_id).exists():
+            raise JWTAuthenticationFailed('Student not found')
+
+        data = {"access": str(refresh.access_token)}
+
+        if jwt_settings.ROTATE_REFRESH_TOKENS:
+            if jwt_settings.BLACKLIST_AFTER_ROTATION:
+                _blacklist_student_token(refresh)
+            refresh.set_jti()
+            refresh.set_exp()
+            refresh.set_iat()
+            data["refresh"] = str(refresh)
+
+        return data
+
+
+class StudentTokenRefreshView(TokenRefreshView):
+    serializer_class = StudentTokenRefreshSerializer
 
 
 def _get_tokens_for_student(student):
@@ -131,8 +189,8 @@ def auth_logout(request):
 
     try:
         token = RefreshToken(refresh_token)
-        token.blacklist()
-    except TokenError:
-        pass  # Token already expired or invalid — treat as success
+        _blacklist_student_token(token)
+    except (TokenError, ValueError, AttributeError):
+        pass  # Token expired, invalid, or not in outstanding tokens — treat as success
 
     return Response({'message': 'Chiqish muvaffaqiyatli'})

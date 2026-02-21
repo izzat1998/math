@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework.throttling import AnonRateThrottle
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView
 from . import views, auth_views, student_views, leaderboard_views, practice_views, dashboard_views
 
 
@@ -24,7 +24,7 @@ urlpatterns = [
 
     # JWT token endpoints (rate-limited to prevent brute force)
     path('token/', TokenObtainPairView.as_view(throttle_classes=[LoginRateThrottle]), name='token-obtain'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
+    path('token/refresh/', auth_views.StudentTokenRefreshView.as_view(), name='token-refresh'),
 
     # Student — Real exams
     path('exams/upcoming/', student_views.upcoming_exam, name='upcoming-exam'),
