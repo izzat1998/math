@@ -79,7 +79,14 @@ def leaderboard(request):
     except (TypeError, ValueError):
         limit = 50
     current_student = request.user if request.user and hasattr(request.user, 'id') and not getattr(request.user, 'is_anonymous', True) else None
-    return _top_rated(current_student, limit)
+
+    tab = request.query_params.get('tab', 'top_rated')
+    if tab == 'most_improved':
+        return _most_improved(current_student, limit)
+    elif tab == 'most_active':
+        return _most_active(current_student, limit)
+    else:
+        return _top_rated(current_student, limit)
 
 
 def _top_rated(current_student, limit):
@@ -136,31 +143,46 @@ def _most_improved(current_student, limit):
 
     Uses DB-level aggregation instead of loading the entire EloHistory table.
     """
-    # Aggregate total elo_delta per student at the DB level
-    improvements_qs = (
-        EloHistory.objects
-        .values('student_id')
-        .annotate(total_delta=Sum('elo_delta'))
-        .order_by('-total_delta')[:limit]
-    )
+    from django.core.cache import cache
 
-    student_ids = [row['student_id'] for row in improvements_qs]
-    delta_map = {row['student_id']: row['total_delta'] for row in improvements_qs}
+    cache_key = f'leaderboard_improved_{limit}'
+    cached = cache.get(cache_key)
 
-    # Batch-fetch ratings and trends
-    ratings_map = {
-        r.student_id: r
-        for r in StudentRating.objects.select_related('student').filter(student_id__in=student_ids)
-    }
-    trend_data = _prefetch_trends(student_ids)
+    if cached is not None:
+        entries = [dict(e) for e in cached['entries']]
+        trend_data = dict(cached['trend_data'])
+    else:
+        # Aggregate total elo_delta per student at the DB level
+        improvements_qs = (
+            EloHistory.objects
+            .values('student_id')
+            .annotate(total_delta=Sum('elo_delta'))
+            .order_by('-total_delta')[:limit]
+        )
+
+        student_ids = [row['student_id'] for row in improvements_qs]
+        delta_map = {row['student_id']: row['total_delta'] for row in improvements_qs}
+
+        # Batch-fetch ratings and trends
+        ratings_map = {
+            r.student_id: r
+            for r in StudentRating.objects.select_related('student').filter(student_id__in=student_ids)
+        }
+        trend_data = _prefetch_trends(student_ids)
+
+        entries = []
+        for rank, sid in enumerate(student_ids, 1):
+            rating = ratings_map.get(sid)
+            if not rating:
+                continue
+            entries.append(_build_entry(rating, rank, trend_data, improvement=delta_map[sid]))
+
+        cache.set(cache_key, {'entries': entries, 'trend_data': trend_data}, timeout=300)
 
     student_id = current_student.id if current_student else None
-    entries = []
-    for rank, sid in enumerate(student_ids, 1):
-        rating = ratings_map.get(sid)
-        if not rating:
-            continue
-        entries.append(_build_entry(rating, rank, trend_data, student_id, improvement=delta_map[sid]))
+    if student_id:
+        for e in entries:
+            e['is_current_user'] = str(e['student_id']) == str(student_id)
 
     my_entry = None
     if current_student:
@@ -192,15 +214,29 @@ def _most_improved(current_student, limit):
 
 
 def _most_active(current_student, limit):
-    ratings = list(
-        StudentRating.objects
-        .select_related('student')
-        .filter(exams_taken__gt=0)
-        .order_by('-exams_taken', '-elo')[:limit]
-    )
+    from django.core.cache import cache
+
+    cache_key = f'leaderboard_active_{limit}'
+    cached = cache.get(cache_key)
+
+    if cached is not None:
+        entries = [dict(e) for e in cached['entries']]
+        trend_data = dict(cached['trend_data'])
+    else:
+        ratings = list(
+            StudentRating.objects
+            .select_related('student')
+            .filter(exams_taken__gt=0)
+            .order_by('-exams_taken', '-elo')[:limit]
+        )
+        trend_data = _prefetch_trends([r.student_id for r in ratings])
+        entries = [_build_entry(r, i + 1, trend_data) for i, r in enumerate(ratings)]
+        cache.set(cache_key, {'entries': entries, 'trend_data': trend_data}, timeout=300)
+
     student_id = current_student.id if current_student else None
-    trend_data = _prefetch_trends([r.student_id for r in ratings])
-    entries = [_build_entry(r, i + 1, trend_data, student_id) for i, r in enumerate(ratings)]
+    if student_id:
+        for e in entries:
+            e['is_current_user'] = str(e['student_id']) == str(student_id)
 
     my_entry = None
     if current_student:
