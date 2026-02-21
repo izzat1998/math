@@ -144,12 +144,15 @@ def calibrate_exam_rasch(exam_id):
     ItemDifficulty.objects.bulk_create(item_difficulties)
 
     # Update each student's Rasch ability and scaled score
+    from .models import EloHistory
     for i, session in enumerate(sessions):
         theta = float(thetas[i])
         scaled = compute_rasch_scaled_score(theta)
         StudentRating.objects.filter(
             student=session.student
         ).update(rasch_ability=theta, rasch_scaled=scaled)
+        # Update the EloHistory record with the calibrated rasch_after
+        EloHistory.objects.filter(session=session).update(rasch_after=scaled)
 
     logger.info('Exam %s: Rasch calibration complete for %d participants, %d items',
                 exam_id, len(sessions), n_items)

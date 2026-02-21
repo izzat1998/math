@@ -135,13 +135,13 @@ def admin_item_analysis(request, exam_id):
             session__exam=exam,
             session__status='submitted',
             question_number=item.question_number,
-            sub_part=item.sub_part or '',
+            sub_part=item.sub_part,
         ).count()
         correct = StudentAnswer.objects.filter(
             session__exam=exam,
             session__status='submitted',
             question_number=item.question_number,
-            sub_part=item.sub_part or '',
+            sub_part=item.sub_part,
             is_correct=True,
         ).count()
 

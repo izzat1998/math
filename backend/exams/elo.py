@@ -67,6 +67,7 @@ def _compute_and_save(session):
     new_elo = max(ELO_FLOOR, rating.elo + delta)
 
     elo_before = rating.elo
+    rasch_before = rating.rasch_scaled
 
     # Update rating
     rating.elo = new_elo
@@ -80,6 +81,8 @@ def _compute_and_save(session):
         elo_before=elo_before,
         elo_after=new_elo,
         elo_delta=new_elo - elo_before,
+        rasch_before=rasch_before,
+        rasch_after=rasch_before,  # Updated later by Rasch calibration task
         score_percent=round(student_score, 4),
         exam_avg_percent=round(exam_avg, 4),
         k_factor=k_factor,

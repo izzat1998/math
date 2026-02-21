@@ -245,9 +245,30 @@ export default function ExamPage() {
       if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) return
     }
 
-    // Clear any pending debounced answer saves
+    // Flush all pending debounced answer saves before submitting
+    const pendingKeys = Object.keys(debounceTimers.current)
     Object.values(debounceTimers.current).forEach(clearTimeout)
     debounceTimers.current = {}
+
+    if (pendingKeys.length > 0) {
+      const saved = loadSavedAnswers(session.session_id)
+      const flushPromises: Promise<void>[] = []
+      for (const key of pendingKeys) {
+        const answer = saved[key]
+        if (!answer) continue
+        const parts = key.split('_')
+        const questionNumber = parseInt(parts[0], 10)
+        const subPart = parts[1] || null
+        flushPromises.push(
+          api.post(`/sessions/${session.session_id}/answers/`, {
+            question_number: questionNumber,
+            sub_part: subPart,
+            answer,
+          }).then(() => {}).catch(() => {})
+        )
+      }
+      await Promise.all(flushPromises)
+    }
 
     try {
       setMainButtonLoading(true)

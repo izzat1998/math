@@ -109,10 +109,12 @@ def practice_answer(request, session_id):
     if str(question_id) not in valid_ids:
         return Response({'error': "Savol bu sessiyaga tegishli emas"}, status=status.HTTP_400_BAD_REQUEST)
 
-    answers = session.answers or {}
-    answers[str(question_id)] = answer
-    session.answers = answers
-    session.save(update_fields=['answers'])
+    with transaction.atomic():
+        session = PracticeSession.objects.select_for_update().get(id=session_id)
+        answers = session.answers or {}
+        answers[str(question_id)] = answer
+        session.answers = answers
+        session.save(update_fields=['answers'])
 
     return Response({'message': 'Javob saqlandi'})
 

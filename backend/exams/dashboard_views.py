@@ -1,13 +1,13 @@
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from django.db.models import Count, Q
 from django.utils import timezone
 
 from .models import (
     StudentRating, StudentStreak, StudentAchievement,
-    Achievement, MockExam, ExamSession, EloHistory,
+    Achievement, MockExam, ExamSession, EloHistory, StudentAnswer,
 )
 from .permissions import StudentJWTAuthentication, IsStudent
+from .scoring import compute_score
 
 student_auth = [StudentJWTAuthentication]
 student_perm = [IsStudent]
@@ -86,15 +86,25 @@ def dashboard(request):
 
 def _get_exam_history(student):
     """Get list of past exams with scores."""
-    sessions = ExamSession.objects.filter(
-        student=student,
-        status='submitted',
-    ).select_related('exam').annotate(
-        correct_count=Count('answers', filter=Q(answers__is_correct=True))
-    ).order_by('-submitted_at')
+    sessions = list(
+        ExamSession.objects.filter(
+            student=student,
+            status='submitted',
+        ).select_related('exam').order_by('-submitted_at')
+    )
 
-    # Batch-fetch EloHistory for all sessions to avoid N+1 queries
+    if not sessions:
+        return []
+
     session_ids = [s.id for s in sessions]
+
+    # Batch-fetch all answers grouped by session to avoid N+1
+    all_answers = StudentAnswer.objects.filter(session_id__in=session_ids)
+    answers_by_session = {}
+    for a in all_answers:
+        answers_by_session.setdefault(a.session_id, []).append(a)
+
+    # Batch-fetch EloHistory
     elo_entries = {
         e.session_id: e
         for e in EloHistory.objects.filter(session_id__in=session_ids)
@@ -102,14 +112,16 @@ def _get_exam_history(student):
 
     history = []
     for session in sessions:
+        prefetched = answers_by_session.get(session.id, [])
+        score = compute_score(session, prefetched_answers=prefetched)
         elo_entry = elo_entries.get(session.id)
         history.append({
             'session_id': str(session.id),
             'exam_id': str(session.exam.id),
             'exam_title': session.exam.title,
             'submitted_at': session.submitted_at.isoformat() if session.submitted_at else None,
-            'exercises_correct': session.correct_count,
-            'exercises_total': 45,
+            'exercises_correct': score['exercises_correct'],
+            'exercises_total': score['exercises_total'],
             'rasch_scaled': elo_entry.rasch_after if elo_entry else None,
             'elo_delta': elo_entry.elo_delta if elo_entry else None,
             'is_auto_submitted': session.is_auto_submitted,
