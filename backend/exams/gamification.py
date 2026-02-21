@@ -6,7 +6,7 @@ from .models import (
 )
 
 
-def update_streak(student):
+def update_streak(student, exam=None):
     """
     Update exam-based streak. Called after each exam submission.
     Streak = consecutive exams participated in.
@@ -16,11 +16,15 @@ def update_streak(student):
         defaults={'current_streak': 0, 'longest_streak': 0}
     )
 
-    today = timezone.now().date()
+    exam_date = exam.scheduled_start.date() if exam else timezone.now().date()
+
+    # Prevent double-counting for the same exam date
+    if streak.last_exam_date == exam_date:
+        return
 
     streak.current_streak += 1
     streak.longest_streak = max(streak.longest_streak, streak.current_streak)
-    streak.last_exam_date = today
+    streak.last_exam_date = exam_date
     streak.save()
 
 

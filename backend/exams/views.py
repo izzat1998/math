@@ -59,6 +59,14 @@ def admin_exam_detail(request, exam_id):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     if request.method == 'PUT':
+        # Prevent schedule changes if students have already started the exam
+        if ExamSession.objects.filter(exam=exam).exists():
+            schedule_fields = {'scheduled_start', 'scheduled_end', 'duration'}
+            if schedule_fields & set(request.data.keys()):
+                return Response(
+                    {'error': 'Cannot change schedule for an exam that has been started by students.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         serializer = MockExamSerializer(exam, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()

@@ -189,7 +189,7 @@ class TestStreakIntegration(TestCase):
                 submitted_at=exam.scheduled_start + timedelta(hours=1),
             )
             check_streak_broken(self.student, exam)
-            update_streak(self.student)
+            update_streak(self.student, exam)
 
         streak = StudentStreak.objects.get(student=self.student)
         self.assertEqual(streak.current_streak, 3)
@@ -216,11 +216,11 @@ class TestStreakIntegration(TestCase):
             submitted_at=exams[0].scheduled_start + timedelta(hours=1),
         )
         check_streak_broken(self.student, exams[0])
-        update_streak(self.student)
+        update_streak(self.student, exams[0])
 
         # Skip exam 2, take exam 3
         check_streak_broken(self.student, exams[2])  # Should reset streak
-        update_streak(self.student)
+        update_streak(self.student, exams[2])
 
         streak = StudentStreak.objects.get(student=self.student)
         self.assertEqual(streak.current_streak, 1)  # Reset then incremented

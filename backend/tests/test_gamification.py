@@ -17,14 +17,26 @@ class TestStreakLogic(TestCase):
         self.assertEqual(streak.current_streak, 1)
 
     def test_consecutive_exams_increment_streak(self):
-        update_streak(self.student)
-        update_streak(self.student)
+        now = timezone.now()
+        for i in range(2):
+            exam = MockExam.objects.create(
+                title=f"Streak {i}", scheduled_start=now + timedelta(weeks=i),
+                scheduled_end=now + timedelta(weeks=i, hours=3),
+                duration=150, created_by=self.admin,
+            )
+            update_streak(self.student, exam)
         streak = StudentStreak.objects.get(student=self.student)
         self.assertEqual(streak.current_streak, 2)
 
     def test_longest_streak_tracked(self):
-        for _ in range(5):
-            update_streak(self.student)
+        now = timezone.now()
+        for i in range(5):
+            exam = MockExam.objects.create(
+                title=f"Streak {i}", scheduled_start=now + timedelta(weeks=i),
+                scheduled_end=now + timedelta(weeks=i, hours=3),
+                duration=150, created_by=self.admin,
+            )
+            update_streak(self.student, exam)
         streak = StudentStreak.objects.get(student=self.student)
         self.assertEqual(streak.longest_streak, 5)
 
@@ -45,7 +57,7 @@ class TestStreakLogic(TestCase):
             student=self.student, exam=exam1, status='submitted',
             submitted_at=now - timedelta(days=14),
         )
-        update_streak(self.student)  # streak = 1
+        update_streak(self.student, exam1)  # streak = 1
 
         # Now exam3 comes, student missed exam2
         exam3 = MockExam.objects.create(

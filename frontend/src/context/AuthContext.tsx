@@ -8,7 +8,7 @@ interface AuthContextType {
   fullName: string | null
   isAuthenticated: boolean
   loginWithTelegram: (initData: string) => Promise<AuthResponse>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -36,10 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
     const refreshToken = localStorage.getItem('refresh_token')
     if (refreshToken) {
-      api.post('/auth/logout/', { refresh: refreshToken }).catch(() => {})
+      try {
+        await api.post('/auth/logout/', { refresh: refreshToken })
+      } catch {
+        // Token already expired or invalid — proceed with local cleanup
+      }
     }
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')

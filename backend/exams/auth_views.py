@@ -95,7 +95,7 @@ def auth_telegram(request):
         auth_date = int(auth_date_str)
     except (ValueError, TypeError):
         return Response({"error": "auth_date noto'g'ri"}, status=status.HTTP_400_BAD_REQUEST)
-    if abs(time.time() - auth_date) > TELEGRAM_AUTH_MAX_AGE_SECONDS:
+    if time.time() - auth_date > TELEGRAM_AUTH_MAX_AGE_SECONDS:
         return Response({"error": "auth_date eskirgan"}, status=status.HTTP_401_UNAUTHORIZED)
 
     user_data = _validate_telegram_init_data(init_data)

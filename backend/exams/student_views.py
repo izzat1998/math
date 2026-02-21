@@ -261,7 +261,7 @@ def session_results(request, session_id):
 def _session_payload(session, exam):
     # Late-start: effective duration = min(exam.duration, remaining window time)
     remaining_minutes = (exam.scheduled_end - session.started_at).total_seconds() / 60
-    effective_duration = min(exam.duration, max(0, int(remaining_minutes)))
+    effective_duration = min(exam.duration, max(0, round(remaining_minutes)))
     return {
         'session_id': str(session.id),
         'started_at': session.started_at.isoformat(),
@@ -340,7 +340,7 @@ def _submit_session(session, auto=False):
 
     from .gamification import update_streak, check_streak_broken, check_and_award_achievements
     check_streak_broken(session.student, session.exam)
-    update_streak(session.student)
+    update_streak(session.student, session.exam)
     check_and_award_achievements(session.student, session)
 
 

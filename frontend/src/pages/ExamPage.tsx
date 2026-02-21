@@ -192,6 +192,13 @@ export default function ExamPage() {
     }
   }, [submitted, session])
 
+  // Clean up debounce timers on unmount to prevent stale API calls
+  useEffect(() => {
+    return () => {
+      Object.values(debounceTimers.current).forEach(clearTimeout)
+    }
+  }, [])
+
 
   const saveAnswer = useCallback(
     (questionNumber: number, subPart: string | null, answer: string) => {
@@ -229,7 +236,8 @@ export default function ExamPage() {
   )
 
   const handleSubmit = useCallback(async () => {
-    if (!session || submitted) return
+    if (!session || submitted || isSubmitting.current) return
+    isSubmitting.current = true
 
     if (isTelegram) {
       const buttonId = await showPopup({
@@ -240,9 +248,9 @@ export default function ExamPage() {
           { id: 'submit', type: 'destructive', text: 'Topshirish' },
         ],
       })
-      if (buttonId !== 'submit') return
+      if (buttonId !== 'submit') { isSubmitting.current = false; return }
     } else {
-      if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) return
+      if (!confirm("Topshirishni xohlaysizmi? Topshirgandan keyin javoblarni o'zgartira olmaysiz.")) { isSubmitting.current = false; return }
     }
 
     // Flush all pending debounced answer saves before submitting
@@ -276,8 +284,9 @@ export default function ExamPage() {
       setSubmitted(true)
       hapticNotification('success')
       hideMainButton()
-      navigate(`/exam/${examId}/waiting`)
+      navigate(`/exam/${examId}/waiting`, { state: { sessionId: session.session_id } })
     } catch {
+      isSubmitting.current = false
       setMainButtonLoading(false)
       toast("Topshirishda xatolik yuz berdi. Qaytadan urinib ko'ring.", 'error')
     }
@@ -333,7 +342,7 @@ export default function ExamPage() {
       setSubmitted(true)
       hapticNotification('warning')
       toast('Vaqt tugadi! Javoblar topshirildi.', 'success')
-      navigate(`/exam/${examId}/waiting`)
+      navigate(`/exam/${examId}/waiting`, { state: { sessionId: session.session_id } })
     }).catch(() => {
       isSubmitting.current = false
       toast('Vaqt tugadi, lekin topshirishda xatolik. Sahifani yangilang.', 'error')

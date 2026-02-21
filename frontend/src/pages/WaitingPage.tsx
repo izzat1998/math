@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import api from '../api/client'
 import { useToast } from '../context/ToastContext'
 import type { Exam } from '../api/types'
@@ -17,6 +17,8 @@ const COUNTDOWN_UNITS = [
 export default function WaitingPage() {
   const { examId } = useParams<{ examId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const sessionId = (location.state as { sessionId?: string } | null)?.sessionId
   const { toast } = useToast()
 
   const [exam, setExam] = useState<Exam | null>(null)
@@ -45,7 +47,7 @@ export default function WaitingPage() {
         clearInterval(interval)
         if (!hasNavigated.current) {
           hasNavigated.current = true
-          navigate('/', { replace: true })
+          navigate(sessionId ? `/results/${sessionId}` : '/', { replace: true })
         }
         return
       }

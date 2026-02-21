@@ -18,10 +18,11 @@ def _prefetch_trends(student_ids):
     if not student_ids:
         return {}
 
-    # Fetch the 3 most recent elo_delta values per student
+    # Fetch recent elo_delta values per student (only needed fields)
     history_qs = (
         EloHistory.objects
         .filter(student_id__in=student_ids)
+        .only('student_id', 'elo_delta', 'created_at')
         .order_by('student_id', '-created_at')
     )
 
