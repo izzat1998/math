@@ -371,7 +371,7 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
       <div
         ref={containerRef}
         className={`flex-1 bg-slate-100 relative ${
-          !isMobile ? 'overflow-auto flex justify-center p-4' : 'overflow-hidden'
+          !isMobile ? 'overflow-auto flex justify-center p-4' : 'overflow-y-auto overflow-x-hidden'
         }`}
         onTouchStart={isMobile ? handleTouchStart : undefined}
         onTouchMove={isMobile ? handleTouchMove : undefined}
@@ -403,6 +403,8 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
               className={isMobile ? '' : 'shadow-sm rounded-sm'}
             />
           </Document>
+          {/* Spacer so nav arrows don't cover bottom of PDF */}
+          {isMobile && <div className="h-16 shrink-0" />}
         </div>
 
         {/* ── Bottom-center nav arrows (mobile + desktop) ── */}

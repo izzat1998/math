@@ -125,7 +125,7 @@ export default function LeaderboardPage() {
     setError(null)
     api.get<LeaderboardResponse>(`/leaderboard/?tab=${activeTab}`)
       .then(({ data }) => setData(data))
-      .catch(() => setError('Failed to load leaderboard'))
+      .catch(() => setError('Reyting jadvalini yuklashda xatolik'))
       .finally(() => setLoading(false))
   }, [activeTab])
 

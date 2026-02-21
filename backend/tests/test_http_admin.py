@@ -2,13 +2,14 @@ import io
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from exams.models import MockExam, CorrectAnswer, ExamSession
 from tests.helpers import admin_client, authenticated_client, make_student, make_exam
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAdminExamCRUD(TestCase):
     """Test admin exam create/update/delete via HTTP."""
 
@@ -88,6 +89,7 @@ class TestAdminExamCRUD(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAdminAnswerUpload(TestCase):
     """Test bulk answer upload via HTTP."""
 
@@ -112,6 +114,7 @@ class TestAdminAnswerUpload(TestCase):
         )
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAdminResults(TestCase):
     """Test admin results and analytics endpoints."""
 
@@ -141,6 +144,7 @@ class TestAdminResults(TestCase):
         self.assertIn('score_distribution', data)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAdminAuthRequired(TestCase):
     """Verify admin endpoints reject non-admin users."""
 

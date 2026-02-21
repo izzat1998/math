@@ -25,7 +25,7 @@ export default function ConnectionBanner({ pendingAnswers }: ConnectionBannerPro
   // API-level heartbeat: ping every 30s, mark unreachable after 2 consecutive failures
   useEffect(() => {
     const check = () => {
-      api.get('/upcoming-exam/').then(() => {
+      api.get('/exams/upcoming/').then(() => {
         failCount.current = 0
         setApiReachable(true)
         // On successful heartbeat, flush any queued answers

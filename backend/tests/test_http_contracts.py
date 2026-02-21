@@ -1,10 +1,11 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from exams.models import ExamSession, StudentAnswer
 from exams.student_views import _submit_session
 from tests.helpers import authenticated_client, admin_client, make_exam
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestResultsContract(TestCase):
     """Verify /api/sessions/{id}/results/ returns exact field names frontend expects."""
 
@@ -47,6 +48,7 @@ class TestResultsContract(TestCase):
                 self.assertIn(field, data['elo'], f"Missing elo field: {field}")
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestDashboardContract(TestCase):
     """Verify /api/me/dashboard/ returns exact field names frontend expects."""
 
@@ -64,6 +66,7 @@ class TestDashboardContract(TestCase):
             self.assertIn(field, data, f"Missing field: {field}")
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestHistoryContract(TestCase):
     """Verify /api/me/history/ returns exact field names frontend expects."""
 
@@ -94,6 +97,7 @@ class TestHistoryContract(TestCase):
             self.assertIn(field, entry, f"Missing field: {field}")
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestLeaderboardContract(TestCase):
     """Verify /api/leaderboard/ returns exact field names frontend expects."""
 
@@ -107,6 +111,7 @@ class TestLeaderboardContract(TestCase):
         self.assertIn('my_entry', data)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestStartExamContract(TestCase):
     """Verify POST /api/exams/{id}/start/ returns exact field names."""
 

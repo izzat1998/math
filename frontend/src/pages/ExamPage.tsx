@@ -96,6 +96,8 @@ export default function ExamPage() {
     showPopup,
     setHeaderColor,
     setBackgroundColor,
+    enableClosingConfirmation,
+    disableClosingConfirmation,
   } = useTelegram()
 
   const isMock = IS_DEV && !isAuthenticated
@@ -187,12 +189,17 @@ export default function ExamPage() {
     })
   }, [examId, exam, navigate, toast, isMock])
 
+  // Prevent accidental close during active exam
   useEffect(() => {
     if (!session || submitted) return
+    enableClosingConfirmation()
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
     window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [session, submitted])
+    return () => {
+      disableClosingConfirmation()
+      window.removeEventListener('beforeunload', handler)
+    }
+  }, [session, submitted, enableClosingConfirmation, disableClosingConfirmation])
 
   // Clean up localStorage backup and debounce timers on submit
   useEffect(() => {
@@ -237,7 +244,6 @@ export default function ExamPage() {
             questionNumber,
             subPart,
             answer,
-            timestamp: Date.now(),
           })
         })
       }
@@ -294,10 +300,14 @@ export default function ExamPage() {
             question_number: questionNumber,
             sub_part: subPart,
             answer,
-          }).then(() => {}).catch(() => {})
+          }).then(() => {}).catch(() => {
+            enqueue({ sessionId: session.session_id, questionNumber, subPart, answer })
+          })
         )
       }
       await Promise.all(flushPromises)
+      // Flush any newly enqueued items from failed direct saves
+      await flush()
     }
 
     try {
@@ -357,12 +367,16 @@ export default function ExamPage() {
             question_number: questionNumber,
             sub_part: subPart,
             answer,
-          }).then(() => {}).catch(() => {})
+          }).then(() => {}).catch(() => {
+            enqueue({ sessionId: session.session_id, questionNumber, subPart, answer })
+          })
         )
       }
     }
 
     await Promise.all(flushPromises)
+    // Flush any newly enqueued items from failed direct saves
+    await flush()
 
     api.post(`/sessions/${session.session_id}/submit/`).then(() => {
       clearQueue(session.session_id)

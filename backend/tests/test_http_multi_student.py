@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from exams.models import ExamSession, StudentAnswer, StudentRating, EloHistory
 from exams.student_views import _submit_session
@@ -72,6 +72,7 @@ class TestMultiStudentExam(TestCase):
         self.assertEqual(compute_letter_grade(30), 'D')
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestMultiStudentHTTP(TestCase):
     """Test multi-student scenarios through HTTP endpoints."""
 

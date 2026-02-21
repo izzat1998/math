@@ -30,6 +30,7 @@ export default function AnswerBar({
 }: AnswerBarProps) {
   const isMcq = currentQuestion <= MCQ_COUNT
   const [focusedInput, setFocusedInput] = useState<string | null>(null)
+  const [showKeyboard, setShowKeyboard] = useState(false)
   const lastFocusedRef = useRef<string | null>(null)
   const [showGrid, setShowGrid] = useState(false)
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
@@ -263,7 +264,7 @@ export default function AnswerBar({
                   inputMode="none"
                   value={answers[key] || ''}
                   onChange={(e) => onAnswer(currentQuestion, sub, e.target.value)}
-                  onFocus={() => { setFocusedInput(key); lastFocusedRef.current = key }}
+                  onFocus={() => { setFocusedInput(key); lastFocusedRef.current = key; setShowKeyboard(true) }}
                   onBlur={() => {
                     if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
                     blurTimerRef.current = setTimeout(() => setFocusedInput(null), 200)
@@ -273,10 +274,29 @@ export default function AnswerBar({
                   aria-label={`Savol ${currentQuestion}, ${sub} qism javob`}
                   className="flex-1 !h-[52px] !px-4 !rounded-2xl !border-[1.5px] !border-slate-200 !bg-white !text-base !text-slate-800 placeholder:!text-slate-300 focus:!border-accent-500 focus:!ring-0 focus:!outline-none disabled:!opacity-40 transition-colors"
                 />
+                {sub === 'b' && !disabled && (
+                  <button
+                    onClick={() => setShowKeyboard(!showKeyboard)}
+                    aria-label={showKeyboard ? 'Klaviaturani yopish' : 'Klaviaturani ochish'}
+                    className={`w-[52px] h-[52px] shrink-0 rounded-2xl flex items-center justify-center transition-all ${
+                      showKeyboard
+                        ? 'bg-accent-500 text-white shadow-md shadow-accent-500/25'
+                        : 'bg-slate-100 text-slate-500 border border-slate-200/80'
+                    }`}
+                  >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      {showKeyboard ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5h10.5M6.75 12h10.5m-8.25 4.5h6" />
+                      )}
+                    </svg>
+                  </button>
+                )}
               </div>
             )
           })}
-          {!disabled && (
+          {!disabled && showKeyboard && (
             <MathKeyboard
               onSymbol={handleSymbol}
               onBackspace={handleBackspace}

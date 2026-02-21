@@ -9,7 +9,12 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    max_retries=3,
+)
 def auto_submit_expired_sessions():
     from .models import ExamSession
     from .student_views import submit_session_safe
@@ -51,7 +56,12 @@ def auto_submit_expired_sessions():
     return f"{count} ta sessiya avtomatik topshirildi"
 
 
-@shared_task
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=300,
+    max_retries=3,
+)
 def send_exam_notification(exam_id):
     from .models import MockExam
     from .notifications import notify_new_exam
@@ -62,7 +72,12 @@ def send_exam_notification(exam_id):
         logger.error('Exam %s not found for notification', exam_id)
 
 
-@shared_task
+@shared_task(
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_backoff_max=600,
+    max_retries=3,
+)
 def calibrate_exam_rasch(exam_id):
     """
     Run Rasch calibration after exam window closes.
@@ -85,8 +100,9 @@ def calibrate_exam_rasch(exam_id):
     )
 
     if len(sessions) < MIN_RASCH_PARTICIPANTS:
-        logger.info('Exam %s: only %d participants, skipping Rasch (need %d)',
+        logger.info('Exam %s: only %d participants, using raw-percentage fallback (need %d for Rasch)',
                      exam_id, len(sessions), MIN_RASCH_PARTICIPANTS)
+        _apply_rasch_fallback(exam, sessions)
         return
 
     # Get all correct answer keys to define the item set
@@ -156,3 +172,30 @@ def calibrate_exam_rasch(exam_id):
 
     logger.info('Exam %s: Rasch calibration complete for %d participants, %d items',
                 exam_id, len(sessions), n_items)
+
+
+def _apply_rasch_fallback(exam, sessions):
+    """Apply raw-percentage-based provisional Rasch scores when N < MIN_RASCH_PARTICIPANTS."""
+    from .models import StudentRating, StudentAnswer, EloHistory
+    from .scoring import compute_score, POINTS_TOTAL
+
+    session_ids = [s.id for s in sessions]
+    all_answers = StudentAnswer.objects.filter(session_id__in=session_ids)
+    answers_by_session = {}
+    for a in all_answers:
+        answers_by_session.setdefault(a.session_id, []).append(a)
+
+    with transaction.atomic():
+        for session in sessions:
+            prefetched = answers_by_session.get(session.id, [])
+            score = compute_score(session, prefetched_answers=prefetched)
+            raw_pct = score['points'] / POINTS_TOTAL if POINTS_TOTAL > 0 else 0
+            # Linear map: raw percentage → 0-75 scale
+            scaled = round(max(0.0, min(75.0, raw_pct * 75)), 1)
+            StudentRating.objects.filter(
+                student=session.student
+            ).update(rasch_scaled=scaled)
+            EloHistory.objects.filter(session=session).update(rasch_after=scaled)
+
+    logger.info('Exam %s: raw-percentage fallback applied for %d participants',
+                str(exam.id), len(sessions))

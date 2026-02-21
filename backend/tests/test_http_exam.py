@@ -1,13 +1,14 @@
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from exams.models import ExamSession, StudentAnswer, StudentRating, EloHistory
 from tests.helpers import authenticated_client, admin_client, make_exam, make_student
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestExamLifecycleHTTP(TestCase):
     """Full exam flow through HTTP: start -> save answers -> submit -> results."""
 
@@ -114,6 +115,7 @@ class TestExamLifecycleHTTP(TestCase):
         self.assertEqual(response.status_code, 403)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAnswerValidation(TestCase):
     """Test answer save validation rules via HTTP."""
 
@@ -174,6 +176,7 @@ class TestAnswerValidation(TestCase):
         self.assertEqual(answer.answer, 'B')
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestLateStart(TestCase):
     """Test exam with reduced time for late starters."""
 
@@ -197,6 +200,7 @@ class TestLateStart(TestCase):
         self.assertEqual(response.json()['duration'], 150)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestOtherStudentIsolation(TestCase):
     """Verify students can't access each other's sessions."""
 

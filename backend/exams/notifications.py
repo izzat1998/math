@@ -28,10 +28,18 @@ def notify_new_exam(exam):
     )
 
     try:
-        from telegram import Bot
+        from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
     except ImportError:
         logger.warning("python-telegram-bot not installed, skipping notifications")
         return
+
+    webapp_url = getattr(settings, 'TELEGRAM_WEBAPP_URL', 'https://math.xlog.uz')
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            text="\U0001f4dd Imtihonga kirish",
+            web_app=WebAppInfo(url=webapp_url),
+        )]
+    ])
 
     async def _send_messages():
         bot = Bot(token=bot_token)
@@ -39,7 +47,10 @@ def notify_new_exam(exam):
         # Send to channel first
         if channel_id:
             try:
-                await bot.send_message(chat_id=channel_id, text=text, parse_mode='HTML')
+                await bot.send_message(
+                    chat_id=channel_id, text=text,
+                    parse_mode='HTML', reply_markup=keyboard,
+                )
                 logger.info("Sent exam notification to channel %s", channel_id)
             except Exception as e:
                 logger.error("Channel notification failed: %s", e)
@@ -50,7 +61,10 @@ def notify_new_exam(exam):
         sent = 0
         for tid in telegram_ids:
             try:
-                await bot.send_message(chat_id=tid, text=text, parse_mode='HTML')
+                await bot.send_message(
+                    chat_id=tid, text=text,
+                    parse_mode='HTML', reply_markup=keyboard,
+                )
                 sent += 1
             except Exception as e:
                 logger.warning("DM to %s failed: %s", tid, e)

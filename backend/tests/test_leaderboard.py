@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from tests.helpers import make_student, make_exam, authenticated_client, admin_client
 from exams.models import ExamSession, StudentRating, EloHistory
@@ -10,6 +11,7 @@ class LeaderboardTabsTest(TestCase):
 
     def setUp(self):
         """Create 3 students with different profiles."""
+        cache.clear()
         ac, admin = admin_client()
         self.exam = make_exam(admin)
 

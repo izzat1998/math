@@ -81,6 +81,8 @@ export interface TelegramWebApp {
   showPopup: (params: TelegramPopupParams, cb?: (buttonId: string) => void) => void
   showAlert: (message: string, cb?: () => void) => void
   showConfirm: (message: string, cb: (confirmed: boolean) => void) => void
+  enableClosingConfirmation: () => void
+  disableClosingConfirmation: () => void
 }
 
 declare global {
@@ -120,6 +122,9 @@ export interface UseTelegramReturn {
   cloudSet: (key: string, value: string) => Promise<void>
   cloudGet: (key: string) => Promise<string>
   cloudRemove: (key: string) => Promise<void>
+  // Closing confirmation
+  enableClosingConfirmation: () => void
+  disableClosingConfirmation: () => void
   // Theme
   themeParams: TelegramThemeParams
 }
@@ -251,6 +256,14 @@ export function useTelegram(): UseTelegramReturn {
     })
   }, [tg])
 
+  const enableClosingConfirmation = useCallback(() => {
+    tg?.enableClosingConfirmation?.()
+  }, [tg])
+
+  const disableClosingConfirmation = useCallback(() => {
+    tg?.disableClosingConfirmation?.()
+  }, [tg])
+
   const ready = useCallback(() => { tg?.ready() }, [tg])
   const expand = useCallback(() => { tg?.expand() }, [tg])
 
@@ -277,6 +290,8 @@ export function useTelegram(): UseTelegramReturn {
     cloudSet,
     cloudGet,
     cloudRemove,
+    enableClosingConfirmation,
+    disableClosingConfirmation,
     themeParams: tg?.themeParams ?? {},
   }
 }

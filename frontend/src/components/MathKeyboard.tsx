@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 
 interface MathKeyboardProps {
   onSymbol: (text: string) => void
@@ -20,74 +20,98 @@ type KeyDef = {
   ariaLabel?: string
 }
 
-const ROW_NUMBERS: KeyDef[] = [
-  { label: '1', insert: '1' },
-  { label: '2', insert: '2' },
-  { label: '3', insert: '3' },
-  { label: '4', insert: '4' },
-  { label: '5', insert: '5' },
-  { label: '6', insert: '6' },
-  { label: '7', insert: '7' },
-  { label: '8', insert: '8' },
-  { label: '9', insert: '9' },
-  { label: '0', insert: '0' },
+// ── Tab: Numbers & basics (default) ──
+const TAB_123_ROWS: KeyDef[][] = [
+  [
+    { label: '1', insert: '1' },
+    { label: '2', insert: '2' },
+    { label: '3', insert: '3' },
+    { label: '4', insert: '4' },
+    { label: '5', insert: '5' },
+    { label: '6', insert: '6' },
+    { label: '7', insert: '7' },
+    { label: '8', insert: '8' },
+    { label: '9', insert: '9' },
+    { label: '0', insert: '0' },
+  ],
+  [
+    { label: 'x', insert: 'x' },
+    { label: 'y', insert: 'y' },
+    { label: 'a', insert: 'a' },
+    { label: 'b', insert: 'b' },
+    { label: 'π', insert: 'π' },
+    { label: '.', insert: '.' },
+    { label: '+', insert: '+' },
+    { label: '−', insert: '−' },
+    { label: '(', insert: '(' },
+    { label: ')', insert: ')' },
+  ],
+  [
+    { label: '‹', action: 'left', variant: 'nav', ariaLabel: 'Kursorni chapga' },
+    { label: '›', action: 'right', variant: 'nav', ariaLabel: "Kursorni o'ngga" },
+    { label: '↵', action: 'enter', variant: 'nav', ariaLabel: 'Keyingi maydon' },
+    { label: '⌫', action: 'backspace', variant: 'delete', ariaLabel: "O'chirish" },
+  ],
 ]
 
-const ROW_VARS: KeyDef[] = [
-  { label: 'π', insert: 'π' },
-  { label: 'e', insert: 'e' },
-  { label: 'a', insert: 'a' },
-  { label: 'b', insert: 'b' },
-  { label: 'c', insert: 'c' },
-  { label: 'x', insert: 'x' },
-  { label: 'y', insert: 'y' },
-  { label: 'z', insert: 'z' },
-  { label: '.', insert: '.' },
+// ── Tab: Functions (trig, log, arc) ──
+const TAB_FX_ROWS: KeyDef[][] = [
+  [
+    { label: 'sin', insert: 'sin(' },
+    { label: 'cos', insert: 'cos(' },
+    { label: 'tan', insert: 'tan(' },
+    { label: 'cot', insert: 'cot(' },
+  ],
+  [
+    { label: 'arcsin', insert: 'arcsin(' },
+    { label: 'arccos', insert: 'arccos(' },
+    { label: 'arctan', insert: 'arctan(' },
+    { label: 'arcctg', insert: 'arcctg(' },
+  ],
+  [
+    { label: 'ln', insert: 'ln(' },
+    { label: 'log', insert: 'log(' },
+    { label: 'log₍₎', insert: 'log_' },
+    { label: 'exp', insert: 'exp(' },
+    { label: 'e', insert: 'e' },
+  ],
+  [
+    { label: '‹', action: 'left', variant: 'nav', ariaLabel: 'Kursorni chapga' },
+    { label: '›', action: 'right', variant: 'nav', ariaLabel: "Kursorni o'ngga" },
+    { label: '↵', action: 'enter', variant: 'nav', ariaLabel: 'Keyingi maydon' },
+    { label: '⌫', action: 'backspace', variant: 'delete', ariaLabel: "O'chirish" },
+  ],
 ]
 
-const ROW_STRUCTURES: KeyDef[] = [
-  { label: '(', insert: '(' },
-  { label: ')', insert: ')' },
-  { label: '⬚/⬚', insert: '/' },
-  { label: '√⬚', insert: '√(' },
-  { label: '⬚^⬚', insert: '^' },
-  { label: '⬚²', insert: '²' },
-  { label: '⬚³', insert: '³' },
-  { label: '³√⬚', insert: '³√(' },
-  { label: 'ⁿ√⬚', insert: 'ⁿ√(' },
+// ── Tab: Structures (powers, roots, fractions) ──
+const TAB_STRUCT_ROWS: KeyDef[][] = [
+  [
+    { label: '⬚/⬚', insert: '/' },
+    { label: '√⬚', insert: '√(' },
+    { label: '³√⬚', insert: '³√(' },
+    { label: 'ⁿ√⬚', insert: 'ⁿ√(' },
+  ],
+  [
+    { label: '⬚^⬚', insert: '^' },
+    { label: '⬚²', insert: '²' },
+    { label: '⬚³', insert: '³' },
+    { label: 'c', insert: 'c' },
+    { label: 'z', insert: 'z' },
+  ],
+  [
+    { label: '‹', action: 'left', variant: 'nav', ariaLabel: 'Kursorni chapga' },
+    { label: '›', action: 'right', variant: 'nav', ariaLabel: "Kursorni o'ngga" },
+    { label: '↵', action: 'enter', variant: 'nav', ariaLabel: 'Keyingi maydon' },
+    { label: '⌫', action: 'backspace', variant: 'delete', ariaLabel: "O'chirish" },
+  ],
 ]
 
-const ROW_OPS_TRIG: KeyDef[] = [
-  { label: '+', insert: '+' },
-  { label: '−', insert: '−' },
-  { label: 'sin', insert: 'sin(' },
-  { label: 'cos', insert: 'cos(' },
-  { label: 'tan', insert: 'tan(' },
-  { label: 'cot', insert: 'cot(' },
+type TabKey = '123' | 'f(x)' | '√^'
+const TABS: { key: TabKey; label: string; rows: KeyDef[][] }[] = [
+  { key: '123', label: '123', rows: TAB_123_ROWS },
+  { key: 'f(x)', label: 'f(x)', rows: TAB_FX_ROWS },
+  { key: '√^', label: '√ ^', rows: TAB_STRUCT_ROWS },
 ]
-
-const ROW_ARC: KeyDef[] = [
-  { label: 'arcsin', insert: 'arcsin(' },
-  { label: 'arccos', insert: 'arccos(' },
-  { label: 'arctan', insert: 'arctan(' },
-  { label: 'arcctg', insert: 'arcctg(' },
-]
-
-const ROW_LOGS: KeyDef[] = [
-  { label: 'ln', insert: 'ln(' },
-  { label: 'log', insert: 'log(' },
-  { label: 'log₍₎', insert: 'log_' },
-  { label: 'exp', insert: 'exp(' },
-]
-
-const ROW_NAV: KeyDef[] = [
-  { label: '‹', action: 'left', variant: 'nav', ariaLabel: 'Kursorni chapga' },
-  { label: '›', action: 'right', variant: 'nav', ariaLabel: "Kursorni o'ngga" },
-  { label: '↵', action: 'enter', variant: 'nav', ariaLabel: 'Keyingi maydon' },
-  { label: '⌫', action: 'backspace', variant: 'delete', ariaLabel: "O'chirish" },
-]
-
-const ROWS = [ROW_NUMBERS, ROW_VARS, ROW_STRUCTURES, ROW_OPS_TRIG, ROW_ARC, ROW_LOGS, ROW_NAV]
 
 function KeyButton({
   keyDef,
@@ -96,7 +120,7 @@ function KeyButton({
   keyDef: KeyDef
   onPress: (key: KeyDef) => void
 }) {
-  const handle = (e: React.MouseEvent | React.TouchEvent) => {
+  const handle = (e: React.PointerEvent) => {
     e.preventDefault()
     onPress(keyDef)
   }
@@ -106,8 +130,7 @@ function KeyButton({
 
   return (
     <button
-      onMouseDown={handle}
-      onTouchStart={handle}
+      onPointerDown={handle}
       aria-label={keyDef.ariaLabel || keyDef.label}
       className={`
         flex items-center justify-center rounded-lg text-center select-none
@@ -132,6 +155,8 @@ function KeyButton({
 }
 
 export default function MathKeyboard({ onSymbol, onBackspace, onCursorMove, onEnter }: MathKeyboardProps) {
+  const [activeTab, setActiveTab] = useState<TabKey>('123')
+
   const handleKey = useCallback((key: KeyDef) => {
     if ('action' in key) {
       switch (key.action) {
@@ -145,9 +170,29 @@ export default function MathKeyboard({ onSymbol, onBackspace, onCursorMove, onEn
     }
   }, [onSymbol, onBackspace, onCursorMove, onEnter])
 
+  const currentTab = TABS.find(t => t.key === activeTab)!
+
   return (
     <div className="animate-keyboard-in rounded-2xl bg-slate-100 p-1.5 mt-2 space-y-1">
-      {ROWS.map((row, ri) => (
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-0.5">
+        {TABS.map(tab => (
+          <button
+            key={tab.key}
+            onPointerDown={(e) => { e.preventDefault(); setActiveTab(tab.key) }}
+            className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold transition-colors ${
+              activeTab === tab.key
+                ? 'bg-primary-500 text-white'
+                : 'bg-slate-200 text-slate-500'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Key rows */}
+      {currentTab.rows.map((row, ri) => (
         <div
           key={ri}
           className="grid gap-1"

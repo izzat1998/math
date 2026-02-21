@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.utils import timezone
 
 from .models import (
@@ -10,22 +11,24 @@ def update_streak(student, exam=None):
     """
     Update exam-based streak. Called after each exam submission.
     Streak = consecutive exams participated in.
+    Uses select_for_update to prevent race conditions.
     """
-    streak, created = StudentStreak.objects.get_or_create(
-        student=student,
-        defaults={'current_streak': 0, 'longest_streak': 0}
-    )
+    with transaction.atomic():
+        streak, created = StudentStreak.objects.select_for_update().get_or_create(
+            student=student,
+            defaults={'current_streak': 0, 'longest_streak': 0}
+        )
 
-    exam_date = exam.scheduled_start.date() if exam else timezone.now().date()
+        exam_date = exam.scheduled_start.date() if exam else timezone.now().date()
 
-    # Prevent double-counting for the same exam date
-    if streak.last_exam_date == exam_date:
-        return
+        # Prevent double-counting for the same exam date
+        if streak.last_exam_date == exam_date:
+            return
 
-    streak.current_streak += 1
-    streak.longest_streak = max(streak.longest_streak, streak.current_streak)
-    streak.last_exam_date = exam_date
-    streak.save()
+        streak.current_streak += 1
+        streak.longest_streak = max(streak.longest_streak, streak.current_streak)
+        streak.last_exam_date = exam_date
+        streak.save()
 
 
 def check_streak_broken(student, exam):

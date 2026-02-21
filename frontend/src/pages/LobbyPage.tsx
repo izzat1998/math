@@ -37,7 +37,7 @@ export default function LobbyPage() {
       setLobby(data)
       setRemaining(new Date(data.scheduled_start).getTime() - Date.now())
     }).catch(() => {
-      toast('Lobby yuklanmadi', 'error')
+      toast('Kutish xonasi yuklanmadi', 'error')
       navigate('/', { replace: true })
     })
   }, [examId, navigate, toast])

@@ -177,7 +177,7 @@ export default function DashboardPage() {
                   <p className="text-[11px] font-bold text-white/30 uppercase tracking-wider mb-1">Qobiliyat darajasi</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-[36px] font-extrabold text-white tracking-tight leading-none">{raschDisplay}</span>
-                    <span className="text-[13px] font-semibold text-white/30">/ 100</span>
+                    <span className="text-[13px] font-semibold text-white/30">/ 75</span>
                   </div>
                 </div>
                 <div className="w-16 h-16 rounded-full border-[3px] border-white/10 flex items-center justify-center relative">
@@ -185,13 +185,28 @@ export default function DashboardPage() {
                     <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
                     <circle
                       cx="32" cy="32" r="28" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="3"
-                      strokeDasharray={`${(raschDisplay / 100) * 175.9} 175.9`}
+                      strokeDasharray={`${(raschDisplay / 75) * 175.9} 175.9`}
                       strokeLinecap="round"
                     />
                   </svg>
-                  <span className="text-xs font-bold text-white/60">{raschDisplay}%</span>
+                  <span className="text-xs font-bold text-white/60">{Math.round((raschDisplay / 75) * 100)}%</span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Achievements */}
+          {dashboardLoaded && dashboard && dashboard.achievements.length > 0 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1 scrollbar-hide">
+              {dashboard.achievements.map((a, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 bg-white/[0.08] border border-white/[0.08] rounded-xl px-3 py-2 shrink-0"
+                >
+                  <span className="text-base">{a.icon}</span>
+                  <span className="text-[11px] font-bold text-white/60 whitespace-nowrap">{a.name}</span>
+                </div>
+              ))}
             </div>
           )}
 

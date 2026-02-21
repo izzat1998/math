@@ -30,7 +30,7 @@ def _build_init_data(user_data, bot_token=BOT_TOKEN):
     return urlencode(params, doseq=True)
 
 
-@override_settings(TELEGRAM_BOT_TOKEN=BOT_TOKEN)
+@override_settings(TELEGRAM_BOT_TOKEN=BOT_TOKEN, SECURE_SSL_REDIRECT=False)
 class TestTelegramAuthHTTP(TestCase):
     """Test POST /api/auth/telegram/ through actual HTTP."""
 
@@ -96,6 +96,7 @@ class TestTelegramAuthHTTP(TestCase):
         self.assertEqual(response.status_code, 401)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAuthProtection(TestCase):
     """Verify endpoints reject unauthenticated requests."""
 
@@ -120,6 +121,7 @@ class TestAuthProtection(TestCase):
         self.assertEqual(response.status_code, 200)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestTokenRefresh(TestCase):
     """Test JWT token refresh flow."""
 
@@ -140,6 +142,7 @@ class TestTokenRefresh(TestCase):
         self.assertEqual(response.status_code, 401)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestLogout(TestCase):
     """Test POST /api/auth/logout/ blacklists token."""
 

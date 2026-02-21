@@ -158,6 +158,8 @@ SIMPLE_JWT = {
 
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '')
 TELEGRAM_CHANNEL_ID = os.environ.get('TELEGRAM_CHANNEL_ID')
+TELEGRAM_WEBAPP_URL = os.environ.get('TELEGRAM_WEBAPP_URL', 'https://math.xlog.uz')
+TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', '')
 
 _redis_host = os.environ.get('REDIS_HOST', 'localhost')
 _redis_port = os.environ.get('REDIS_PORT', '6379')

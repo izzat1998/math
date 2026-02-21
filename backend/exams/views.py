@@ -1,6 +1,8 @@
 import logging
+from datetime import timedelta
 
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -156,12 +158,11 @@ def admin_item_analysis(request, exam_id):
         analysis.append({
             'question_number': item.question_number,
             'sub_part': item.sub_part,
-            'beta': round(item.beta, 3),
+            'difficulty': round(item.beta, 3),
             'infit': round(item.infit, 3) if item.infit is not None else None,
             'outfit': round(item.outfit, 3) if item.outfit is not None else None,
             'percent_correct': round(correct / total * 100, 1) if total > 0 else 0,
-            'total_responses': total,
-            'flag': flag,
+            'flagged': flag is not None,
         })
 
     return Response({
@@ -178,45 +179,46 @@ def admin_item_analysis(request, exam_id):
 @permission_classes(admin_perm)
 def admin_analytics(request):
     """Platform-wide analytics."""
-    from django.db.models import Count, Q
-    from django.db.models.functions import TruncMonth
+    from django.db.models import Count, Q, Avg
     from .models import Student, StudentRating, StudentAnswer
 
     total_students = Student.objects.count()
-    active_students = ExamSession.objects.values('student').distinct().count()
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    active_students_30d = ExamSession.objects.filter(
+        started_at__gte=thirty_days_ago
+    ).values('student').distinct().count()
     total_exams = MockExam.objects.count()
     total_sessions = ExamSession.objects.filter(status='submitted').count()
 
-    # Score distribution for most recent exam — single annotated query
-    latest_exam = MockExam.objects.order_by('-scheduled_end').first()
+    # Average score percentage across all submitted sessions
+    from .scoring import POINTS_TOTAL
+    submitted = ExamSession.objects.filter(status='submitted').annotate(
+        correct_count=Count('answers', filter=Q(answers__is_correct=True))
+    )
+    avg_result = submitted.aggregate(avg_correct=Avg('correct_count'))
+    avg_correct = avg_result['avg_correct']
+    avg_score_percent = round((avg_correct / POINTS_TOTAL) * 100, 1) if avg_correct and POINTS_TOTAL > 0 else 0
+
+    # Score distribution buckets
     score_distribution = []
-    if latest_exam:
-        score_distribution = list(
-            ExamSession.objects.filter(
-                exam=latest_exam, status='submitted'
-            ).annotate(
-                correct_count=Count('answers', filter=Q(answers__is_correct=True))
-            ).values_list('correct_count', flat=True)
-        )
-
-    # User growth (students registered per month)
-    growth = list(
-        Student.objects.annotate(
-            month=TruncMonth('created_at')
-        ).values('month').annotate(count=Count('id')).order_by('month')
-    )
-
-    # ELO distribution
-    elo_distribution = list(
-        StudentRating.objects.values_list('elo', flat=True)
-    )
+    buckets = [
+        ('0-20%', 0, 0.2),
+        ('21-40%', 0.2, 0.4),
+        ('41-60%', 0.4, 0.6),
+        ('61-80%', 0.6, 0.8),
+        ('81-100%', 0.8, 1.01),
+    ]
+    for label, lo_frac, hi_frac in buckets:
+        lo_pts = lo_frac * POINTS_TOTAL
+        hi_pts = hi_frac * POINTS_TOTAL
+        count = submitted.filter(correct_count__gte=lo_pts, correct_count__lt=hi_pts).count()
+        score_distribution.append({'bucket': label, 'count': count})
 
     return Response({
         'total_students': total_students,
-        'active_students': active_students,
+        'active_students_30d': active_students_30d,
         'total_exams': total_exams,
         'total_sessions': total_sessions,
+        'avg_score_percent': avg_score_percent,
         'score_distribution': score_distribution,
-        'user_growth': growth,
-        'elo_distribution': elo_distribution,
     })

@@ -1,5 +1,5 @@
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from exams.models import (
     ExamSession, StudentAnswer, StudentRating, StudentStreak,
@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 from tests.helpers import authenticated_client, admin_client, make_student, make_exam
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestDashboardHTTP(TestCase):
     """Test GET /api/me/dashboard/ response structure."""
 
@@ -47,6 +48,7 @@ class TestDashboardHTTP(TestCase):
         self.assertIn('title', data['upcoming_exam'])
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestHistoryHTTP(TestCase):
     """Test GET /api/me/history/ response structure."""
 
@@ -78,6 +80,7 @@ class TestHistoryHTTP(TestCase):
         self.assertIn('elo_delta', data[0])
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestAchievementsHTTP(TestCase):
     """Test GET /api/me/achievements/ response structure."""
 
@@ -108,6 +111,7 @@ class TestAchievementsHTTP(TestCase):
         self.assertIsNotNone(test_achievement[0]['earned_at'])
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestLeaderboardHTTP(TestCase):
     """Test GET /api/leaderboard/ response structure."""
 
@@ -144,6 +148,7 @@ class TestLeaderboardHTTP(TestCase):
         self.assertEqual(len(current), 1)
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestEloHistoryHTTP(TestCase):
     """Test GET /api/me/elo-history/ response structure."""
 

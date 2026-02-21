@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
-from . import views, auth_views, student_views, leaderboard_views, practice_views, dashboard_views
+from . import views, auth_views, student_views, leaderboard_views, practice_views, dashboard_views, bot_views
 
 
 class LoginRateThrottle(AnonRateThrottle):
@@ -17,6 +17,9 @@ urlpatterns = [
     path('admin/exams/<uuid:exam_id>/item-analysis/', views.admin_item_analysis, name='admin-item-analysis'),
     path('admin/notify/', views.admin_notify, name='admin-notify'),
     path('admin/analytics/', views.admin_analytics, name='admin-analytics'),
+
+    # Telegram bot webhook
+    path('telegram/webhook/', bot_views.telegram_webhook, name='telegram-webhook'),
 
     # Auth
     path('auth/telegram/', auth_views.auth_telegram, name='auth-telegram'),

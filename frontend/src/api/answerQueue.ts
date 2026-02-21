@@ -58,13 +58,14 @@ loadFromStorage()
  * Add a failed answer save to the queue.
  * Deduplicates by sessionId + questionNumber + subPart (latest answer wins).
  */
-export function enqueue(item: QueueItem): void {
-  const key = dedupKey(item)
+export function enqueue(item: Omit<QueueItem, 'timestamp'>): void {
+  const timestamped: QueueItem = { ...item, timestamp: Date.now() }
+  const key = dedupKey(timestamped)
   const existingIndex = queue.findIndex((q) => dedupKey(q) === key)
   if (existingIndex !== -1) {
-    queue[existingIndex] = item
+    queue[existingIndex] = timestamped
   } else {
-    queue.push(item)
+    queue.push(timestamped)
   }
   persistToStorage()
   notifyListeners()

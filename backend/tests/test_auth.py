@@ -1,7 +1,8 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from exams.models import Student
 
 
+@override_settings(SECURE_SSL_REDIRECT=False)
 class TestTelegramNameSync(TestCase):
     def test_name_sync_updates_on_change(self):
         """Student name should update when Telegram name changes."""

@@ -26,6 +26,26 @@ const EditExamPage = lazy(() => import('./pages/admin/EditExamPage'))
 const ItemAnalysisPage = lazy(() => import('./pages/admin/ItemAnalysisPage'))
 const AnalyticsPage = lazy(() => import('./pages/admin/AnalyticsPage'))
 
+function NotFoundPage() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+      <div className="text-center max-w-sm animate-slide-up">
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-5">
+          <span className="text-2xl font-extrabold text-slate-300">404</span>
+        </div>
+        <h2 className="text-lg font-bold text-slate-800 mb-2 tracking-tight">Sahifa topilmadi</h2>
+        <p className="text-sm text-slate-400 font-medium mb-5">Bu sahifa mavjud emas yoki o'chirilgan.</p>
+        <a
+          href="/"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-500 text-white rounded-xl font-semibold text-sm hover:bg-primary-600 transition-colors active:scale-95"
+        >
+          Bosh sahifaga qaytish
+        </a>
+      </div>
+    </div>
+  )
+}
+
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
   if (!isAuthenticated) {
@@ -121,6 +141,7 @@ function App() {
                   <Route path="/admin/exams/:examId/edit" element={<AdminRoute><EditExamPage /></AdminRoute>} />
                   <Route path="/admin/exams/:examId/analysis" element={<AdminRoute><ItemAnalysisPage /></AdminRoute>} />
                   <Route path="/admin/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </Suspense>
             </TelegramGate>
