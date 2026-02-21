@@ -127,14 +127,20 @@ export default function ExamPage() {
     api.get<Exam>(`/exams/${examId}/`).then(({ data }) => setExam(data)).catch(() => {
       if (isMock) {
         // In dev mode without auth, use mock exam data
-        setExam({
+        const mockExam = {
           id: examId || 'dev-mock',
           title: 'Dev Mock Exam',
           duration: 120,
           scheduled_start: new Date(Date.now() - 3600000).toISOString(),
           scheduled_end: new Date(Date.now() + 3600000).toISOString(),
           is_open: true,
-        } as Exam)
+        } as Exam
+        setExam(mockExam)
+        setSession({
+          session_id: 'dev-session',
+          started_at: new Date().toISOString(),
+          duration: mockExam.duration,
+        })
       } else {
         setFetchError(true)
         toast('Imtihon yuklanmadi', 'error')
@@ -143,17 +149,7 @@ export default function ExamPage() {
   }, [examId, toast, isMock])
 
   useEffect(() => {
-    if (!exam) return
-
-    // In dev mode without auth, create a mock session
-    if (isMock) {
-      setSession({
-        session_id: 'dev-session',
-        started_at: new Date().toISOString(),
-        duration: exam.duration,
-      })
-      return
-    }
+    if (!exam || isMock) return
 
     const status = getExamStatus(exam)
     if (status !== 'active') return
@@ -209,7 +205,7 @@ export default function ExamPage() {
       setAnswers((prev) => {
         const next = { ...prev, [key]: answer }
         // Persist to localStorage as backup
-        try { localStorage.setItem(getStorageKey(session.session_id), JSON.stringify(next)) } catch {}
+        try { localStorage.setItem(getStorageKey(session.session_id), JSON.stringify(next)) } catch { /* storage full or unavailable */ }
         return next
       })
       hapticImpact('light')
@@ -354,7 +350,7 @@ export default function ExamPage() {
     hapticImpact('light')
   }, [hapticImpact])
 
-  const totalQuestions = (session as any)?.questions?.length ?? TOTAL_QUESTIONS
+  const totalQuestions = TOTAL_QUESTIONS
 
   const examStatus = getExamStatus(exam)
 

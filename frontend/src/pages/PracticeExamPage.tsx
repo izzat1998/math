@@ -86,7 +86,7 @@ export default function PracticeExamPage() {
       const { questionId, answer } = pendingAnswerRef.current
       try {
         await api.post(`/practice/${session.id}/answer/`, { question_id: questionId, answer })
-      } catch {}
+      } catch { /* best-effort flush */ }
       pendingAnswerRef.current = null
     }
 
@@ -112,7 +112,7 @@ export default function PracticeExamPage() {
       const { questionId, answer } = pendingAnswerRef.current
       try {
         await api.post(`/practice/${session.id}/answer/`, { question_id: questionId, answer })
-      } catch {}
+      } catch { /* best-effort flush */ }
       pendingAnswerRef.current = null
     }
 

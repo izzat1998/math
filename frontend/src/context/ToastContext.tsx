@@ -29,8 +29,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   // Cleanup all toast timers on unmount
   useEffect(() => {
+    const timers = timeoutIds.current
     return () => {
-      timeoutIds.current.forEach(tid => clearTimeout(tid))
+      timers.forEach(tid => clearTimeout(tid))
     }
   }, [])
 
@@ -67,6 +68,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useToast(): ToastContextType {
   const ctx = useContext(ToastContext)
   if (!ctx) throw new Error('useToast must be used within ToastProvider')

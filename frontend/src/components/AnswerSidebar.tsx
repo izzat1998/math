@@ -35,9 +35,11 @@ export default function AnswerSidebar({ answers, onAnswer, onSubmit, disabled, o
 
   // Cleanup all timers on unmount
   useEffect(() => {
+    const timers = savedTimers.current
+    const blurTimer = blurTimerRef
     return () => {
-      savedTimers.current.forEach(tid => clearTimeout(tid))
-      if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+      timers.forEach(tid => clearTimeout(tid))
+      if (blurTimer.current) clearTimeout(blurTimer.current)
     }
   }, [])
 

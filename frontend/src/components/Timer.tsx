@@ -30,7 +30,9 @@ export default function Timer({ startedAt, durationMinutes, onExpire }: TimerPro
   })
 
   const onExpireRef = useRef(onExpire)
-  onExpireRef.current = onExpire
+  useEffect(() => {
+    onExpireRef.current = onExpire
+  }, [onExpire])
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 

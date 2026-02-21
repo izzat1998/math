@@ -5,6 +5,7 @@ export function useCursorInsert(
   answers: Record<string, string>,
   onAnswer: (questionNumber: number, subPart: string | null, answer: string) => void
 ) {
+  /* eslint-disable react-hooks/preserve-manual-memoization */
   return useCallback(
     (focusedKey: string, text: string) => {
       const el = inputRefs.current?.get(focusedKey)
@@ -27,4 +28,5 @@ export function useCursorInsert(
     },
     [inputRefs, answers, onAnswer]
   )
+  /* eslint-enable react-hooks/preserve-manual-memoization */
 }

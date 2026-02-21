@@ -46,7 +46,6 @@ export default function LobbyPage() {
     if (!lobby) return
 
     const startTime = new Date(lobby.scheduled_start).getTime()
-    let interval: ReturnType<typeof setInterval>
 
     const tick = (): void => {
       const diff = startTime - Date.now()
@@ -61,8 +60,8 @@ export default function LobbyPage() {
       setRemaining(diff)
     }
 
+    const interval = setInterval(tick, 1000)
     tick()
-    interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
   }, [lobby, examId, navigate])
 

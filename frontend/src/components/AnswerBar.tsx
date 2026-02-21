@@ -47,13 +47,13 @@ export default function AnswerBar({
   const selectedAnswer = answers[answerKey(currentQuestion, null)] || ''
 
   // Auto-focus first input when landing on free-response question
+  // (onFocus handler on the input will set focusedInput state)
   useEffect(() => {
     if (!isMcq) {
       const key = answerKey(currentQuestion, 'a')
       const el = inputRefs.current.get(key)
       if (el) {
         el.focus()
-        setFocusedInput(key)
       }
     }
   }, [currentQuestion, isMcq])

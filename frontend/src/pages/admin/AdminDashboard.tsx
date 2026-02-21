@@ -5,7 +5,7 @@ import adminApi from './adminApi'
 import AdminLayout from '../../components/AdminLayout'
 
 function ExamStatusBadge({ exam }: { exam: Exam }) {
-  const now = Date.now()
+  const [now] = useState(() => Date.now())
   const open = new Date(exam.scheduled_start).getTime()
   const close = new Date(exam.scheduled_end).getTime()
 

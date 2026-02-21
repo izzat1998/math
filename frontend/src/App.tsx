@@ -61,7 +61,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
 function TelegramGate({ children }: { children: ReactNode }) {
   const { isTelegram, initData, ready, expand, setHeaderColor, setBackgroundColor } = useTelegram()
   const { isAuthenticated, loginWithTelegram } = useAuth()
-  const [loading, setLoading] = useState(isTelegram && !isAuthenticated)
+  const [loading, setLoading] = useState(() => isTelegram && !isAuthenticated && !!initData)
   const [telegramError, setTelegramError] = useState(false)
 
   useEffect(() => {
@@ -75,8 +75,6 @@ function TelegramGate({ children }: { children: ReactNode }) {
       loginWithTelegram(initData)
         .catch(() => setTelegramError(true))
         .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
     }
   }, [isTelegram, isAuthenticated, initData, loginWithTelegram, ready, expand, setHeaderColor, setBackgroundColor])
 

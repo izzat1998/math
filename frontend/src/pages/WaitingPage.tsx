@@ -39,7 +39,6 @@ export default function WaitingPage() {
     if (!exam) return
 
     const endTime = new Date(exam.scheduled_end).getTime()
-    let interval: ReturnType<typeof setInterval>
 
     const tick = (): void => {
       const diff = endTime - Date.now()
@@ -54,10 +53,10 @@ export default function WaitingPage() {
       setRemaining(diff)
     }
 
+    const interval = setInterval(tick, 1000)
     tick()
-    interval = setInterval(tick, 1000)
     return () => clearInterval(interval)
-  }, [exam, navigate])
+  }, [exam, navigate, sessionId])
 
   if (!exam) {
     return <LoadingSpinner fullScreen label="Yuklanmoqda..." />

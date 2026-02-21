@@ -57,6 +57,10 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
     if (page < 1 || page > numPages || page === pageNumber) return
     setSlideDir(page > pageNumber ? 'left' : 'right')
     setPageNumber(page)
+    // Reset zoom/pan when navigating
+    setScale(1)
+    setTranslate({ x: 0, y: 0 })
+    setSwipeOffset(0)
   }, [numPages, pageNumber])
 
   // Auto-hide zoom hint after 3 seconds
@@ -110,13 +114,6 @@ export default function PdfViewer({ url, currentQuestion, onPageInfo }: PdfViewe
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-
-  // Reset zoom/pan when page changes
-  useEffect(() => {
-    setScale(1)
-    setTranslate({ x: 0, y: 0 })
-    setSwipeOffset(0)
-  }, [pageNumber])
 
   // ── Text extraction: build question → page mapping ──
   const pageToQuestions = useRef<Map<number, number[]>>(new Map())

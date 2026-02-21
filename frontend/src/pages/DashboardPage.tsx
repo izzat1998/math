@@ -99,8 +99,9 @@ export default function DashboardPage() {
     try {
       const { data } = await api.post('/practice/start/', { mode })
       navigate(`/practice/${data.id}`)
-    } catch (err: any) {
-      const msg = err.response?.data?.error || 'Xatolik yuz berdi'
+    } catch (err) {
+      const error = err as { response?: { data?: { error?: string } } }
+      const msg = error.response?.data?.error || 'Xatolik yuz berdi'
       toast(msg, 'error')
       setStarting(null)
     }
