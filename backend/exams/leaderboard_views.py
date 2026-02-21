@@ -10,6 +10,21 @@ student_auth = [StudentJWTAuthentication]
 student_perm = [IsStudent]
 
 
+def _mask_name(full_name):
+    """Mask name for privacy: 'Alisher Toshmatov' -> 'A***r T.'"""
+    parts = full_name.strip().split()
+    if not parts:
+        return '***'
+    first = parts[0]
+    if len(first) <= 2:
+        masked_first = first[0] + '*'
+    else:
+        masked_first = first[0] + '*' * (len(first) - 2) + first[-1]
+    if len(parts) > 1:
+        return f"{masked_first} {parts[-1][0]}."
+    return masked_first
+
+
 def _prefetch_trends(student_ids):
     """Batch-fetch trend data for a list of student IDs in one query.
 
@@ -114,6 +129,11 @@ def _top_rated(current_student, limit):
         for e in entries:
             e['is_current_user'] = str(e['student_id']) == str(student_id)
 
+    # Apply name masking for rank 51+ (after cache, per-user personalization)
+    for e in entries:
+        if e['rank'] > 50 and not e.get('is_current_user'):
+            e['full_name'] = _mask_name(e['full_name'])
+
     my_entry = _get_my_entry_top_rated(current_student, entries, trend_data) if current_student else None
 
     return Response({'tab': 'top_rated', 'entries': entries, 'my_entry': my_entry})
@@ -184,6 +204,11 @@ def _most_improved(current_student, limit):
         for e in entries:
             e['is_current_user'] = str(e['student_id']) == str(student_id)
 
+    # Apply name masking for rank 51+ (after cache, per-user personalization)
+    for e in entries:
+        if e['rank'] > 50 and not e.get('is_current_user'):
+            e['full_name'] = _mask_name(e['full_name'])
+
     my_entry = None
     if current_student:
         for e in entries:
@@ -237,6 +262,11 @@ def _most_active(current_student, limit):
     if student_id:
         for e in entries:
             e['is_current_user'] = str(e['student_id']) == str(student_id)
+
+    # Apply name masking for rank 51+ (after cache, per-user personalization)
+    for e in entries:
+        if e['rank'] > 50 and not e.get('is_current_user'):
+            e['full_name'] = _mask_name(e['full_name'])
 
     my_entry = None
     if current_student:

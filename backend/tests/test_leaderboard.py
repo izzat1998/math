@@ -90,3 +90,50 @@ class LeaderboardTabsTest(TestCase):
         my = resp.data.get('my_entry')
         if my:
             self.assertTrue(my['is_current_user'])
+
+
+@override_settings(SECURE_SSL_REDIRECT=False)
+class LeaderboardPrivacyTest(TestCase):
+
+    def setUp(self):
+        """Create 55 students to test masking at rank 51+."""
+        ac, admin = admin_client()
+        self.students = []
+        for i in range(55):
+            s = make_student(telegram_id=2000 + i, full_name=f"Student {i:02d}")
+            StudentRating.objects.create(student=s, elo=1500 - i, exams_taken=1)
+            self.students.append(s)
+
+    def test_top_50_names_visible(self):
+        c, _ = authenticated_client(self.students[0])
+        resp = c.get('/api/leaderboard/?limit=55')
+        self.assertEqual(resp.status_code, 200)
+        for entry in resp.data['entries'][:50]:
+            self.assertNotIn('*', entry['full_name'])
+
+    def test_rank_51_plus_names_masked(self):
+        c, _ = authenticated_client(self.students[0])
+        resp = c.get('/api/leaderboard/?limit=55')
+        for entry in resp.data['entries'][50:]:
+            self.assertIn('*', entry['full_name'])
+
+    def test_current_user_always_unmasked(self):
+        # Student at rank 55 (lowest ELO)
+        c, _ = authenticated_client(self.students[54])
+        resp = c.get('/api/leaderboard/?limit=55')
+        my = resp.data['my_entry']
+        self.assertIsNotNone(my)
+        self.assertEqual(my['full_name'], 'Student 54')
+        self.assertNotIn('*', my['full_name'])
+
+    def test_mask_name_single_word(self):
+        from exams.leaderboard_views import _mask_name
+        self.assertEqual(_mask_name('Alisher'), 'A*****r')
+
+    def test_mask_name_two_words(self):
+        from exams.leaderboard_views import _mask_name
+        self.assertEqual(_mask_name('Alisher Toshmatov'), 'A*****r T.')
+
+    def test_mask_name_short(self):
+        from exams.leaderboard_views import _mask_name
+        self.assertEqual(_mask_name('Al'), 'A*')
